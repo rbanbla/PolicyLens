@@ -12,12 +12,12 @@ from django.views.decorators.http import require_POST, require_safe
 from django.views.decorators.cache import never_cache
 from dotenv import dotenv_values
 from ..models import DebatePair, DebateCall, DebateAttempt, SyntheticProfile, ResearchAsset, Evidence
-from .summaries import configuration, fingerprint, SummaryError
+from .summaries import configuration, fingerprint, source_quote, SummaryError
 from ..data.corpus import retrieve
 
 ROLES = ["student", "faculty", "administration"]
 LABELS = {"student": "학생", "faculty": "교수", "administration": "학사행정", "moderator": "정리"}
-VERSION = "document-debate-v1"
+VERSION = "document-debate-v2"
 STEPS = [("shared", "discover", r) for r in ROLES] + [("shared", "merge", "moderator")]
 for condition in ["A", "B"]:
     STEPS += [(condition, "opening", r) for r in ROLES]
@@ -89,8 +89,8 @@ def build_payload(pair, step):
         if stage == "discover":
             instructions += f"{LABELS[role]}의 시선에서 해석이 실제로 갈릴 수 있는 후보를 최대 3개 찾는다. 다른 조항의 정의·예외로 해소되면 제외한다. 후보가 없으면 빈 목록을 반환한다. candidate_ids는 빈 목록이다. "
         else:
-            instructions += "세 역할 후보의 원문 근거를 교차 확인한다. 중복·근거 부족·다른 조항에서 해결된 후보는 제외하고 최대 3개를 선택한다. 후보에 없는 새 인용을 만들지 말고 candidate_ids에 선택 근거가 된 후보 ID를 기록한다. "
-        instructions += "question, 두 해석, 예상 영향, 가정임을 명시한 적용 상황, 정확한 원문 citation을 반환한다. 억지로 논쟁을 만들지 않는다."
+            instructions += "세 역할 후보의 원문 근거를 교차 확인한다. 중복·근거 부족·다른 조항에서 해결된 후보는 제외하고 최대 3개를 선택한다. 후보에 없는 새 인용을 만들지 말고 candidate_ids에 선택 근거가 된 후보 ID를 기록한다. 선택한 후보 중 하나의 citation.page와 citation.quote를 그대로 복사한다. "
+        instructions += "쟁점은 상충 조항에만 한정되지 않는다. 적용 시점, 허용 범위, 공개 수준, 예외 또는 증빙 요구가 문구상 열려 있어 합리적 적용 판단이 갈리는지도 살핀다. 각 후보의 다른 조항을 대조하고, 그래도 남는 두 해석과 서로 다른 실제 결과가 있으면 반환한다. 예시·권고를 의무로 확대하지 않는다. 0개는 관련 조항을 대조한 뒤 적용 차이가 모두 해소된 경우에만 반환한다. question, 두 해석, 예상 영향, 가정임을 명시한 적용 상황, 정확한 원문 citation을 반환한다. 억지로 논쟁을 만들지 않는다."
         schema = DISCOVERY_SCHEMA
     else:
         instructions = spec["common_prompt"] + "\n"
@@ -174,8 +174,15 @@ def build_payload(pair, step):
 def check_citation(citation, pair):
     page, quote = citation["page"], citation["quote"]
     if type(page) is not int or not 1 <= page <= len(pair.document["pages"]): raise ValueError("page")
-    if not isinstance(quote, str) or not quote.strip() or len(quote) > 2000 or quote not in pair.document["pages"][page-1]["text"]:
-        raise ValueError("quote")
+    if not isinstance(quote, str) or not quote.strip() or len(quote) > 2000: raise ValueError("quote")
+    exact = source_quote(quote, pair.document["pages"][page-1]["text"], limit=2000)
+    if exact is None:
+        matches = [(index, source_quote(quote, item["text"], limit=2000))
+                   for index, item in enumerate(pair.document["pages"], 1)]
+        matches = [(index, found) for index, found in matches if found is not None]
+        if len(matches) != 1: raise ValueError("quote")
+        citation["page"], exact = matches[0]
+    citation["quote"] = exact
 
 
 def validate(output, pair, step):

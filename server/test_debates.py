@@ -1,9 +1,10 @@
 import json
 from copy import deepcopy
+from types import SimpleNamespace
 from unittest.mock import patch
 from django.test import TestCase, Client
 from .models import DebatePair, DebateCall, ResearchAsset, Evidence
-from .features.debates import STEPS
+from .features.debates import STEPS, check_citation
 from .features.summaries import fingerprint, SummaryError
 from .data.corpus import retrieve
 
@@ -33,6 +34,15 @@ def mock_response(payload, key):
 
 @patch("server.features.debates.configuration", return_value=("test-key", "gpt-4.1"))
 class DebateTests(TestCase):
+    def test_pdf_quote_is_restored_to_literal_source(self, config):
+        pair = SimpleNamespace(document={"pages": [{"text": "다른 정책 문구"}, {"text": "AI  사용\n범위를 공개한다."}]})
+        citation = {"page": 1, "quote": "AI 사용 범위를 공개한다."}
+        check_citation(citation, pair)
+        self.assertEqual(citation["page"], 2)
+        self.assertEqual(citation["quote"], pair.document["pages"][1]["text"])
+        with self.assertRaises(ValueError):
+            check_citation({"page": 1, "quote": "AI 사용 범위를 금지한다."}, pair)
+
     def setUp(self):
         asset = ResearchAsset.objects.create(path="test", title="Test", category="opinion_dataset")
         for role in ["student", "faculty", "administration"]:

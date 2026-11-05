@@ -9,7 +9,7 @@ const roles = {student:'학생',faculty:'교수',administration:'학사행정',m
 function node(tag,text){const el=document.createElement(tag);el.textContent=text;return el;}
 async function post(url,values){
  const response=await fetch(url,{method:'POST',credentials:'same-origin',headers:{'X-CSRFToken':form.querySelector('[name=csrfmiddlewaretoken]').value},body:new URLSearchParams(values)});
- const data=await response.json();
+ const data=await response.json().catch(()=>({}));
  if(!response.ok){if(data.calls)render(data);throw Error(data.error||'요청에 실패했습니다.');}return data;
 }
 function render(data){
@@ -44,7 +44,7 @@ form.addEventListener('submit',async event=>{
   statusText.textContent=`${data.cursor} / ${data.total} · ${data.next[0]} ${stages[data.next[1]]} · ${roles[data.next[2]]} 생성 중…`;
   data=await post(`/api/debates/${data.id}/step/`,{cursor:String(data.cursor),retry:data.status==='failed'?'1':'0'});render(data);
  }
- statusText.textContent='검토가 완료됐습니다. B는 자료가 제한된 잠정 결과이며, 수정 가이드라인은 공식 정책이 아닙니다.';
+ statusText.textContent=data.issues.length?'검토가 완료됐습니다. B는 자료가 제한된 잠정 결과이며, 수정 가이드라인은 공식 정책이 아닙니다.':'원문에서 검증 가능한 쟁점을 찾지 못해 토론을 생성하지 않았습니다. 다른 정책 문서로 다시 검토할 수 있습니다.';
  }catch(error){statusText.textContent=error.message+' 다시 실행하면 마지막 성공 단계부터 이어집니다.';}
  finally{button.disabled=false;button.textContent='결과 확인 / 이어서 실행 →';document.querySelector('#use-profiles').disabled=false;}
 });

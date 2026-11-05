@@ -20,7 +20,7 @@ async function summarize(isRetry = false) {
       headers: {'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value},
       body: new URLSearchParams({document_hash: panel.dataset.documentHash, retry: isRetry ? '1' : '0'})
     });
-    const data = await response.json();
+    const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data.error || '요약을 불러오지 못했습니다.');
     items.replaceChildren();
     for (const item of data.items) {
@@ -37,7 +37,7 @@ async function summarize(isRetry = false) {
     }
     message.textContent = '주요 내용 ' + data.items.length + '개를 정리했습니다.';
   } catch (error) {
-    message.textContent = error.message === 'Failed to fetch' ? '연결이 끊겼습니다. 잠시 후 다시 시도해 주세요.' : error.message;
+    message.textContent = error instanceof TypeError ? '서버 연결이 끊겼습니다. 잠시 후 다시 시도해 주세요.' : error.message;
     retry.hidden = false;
   } finally {
     busy = false;

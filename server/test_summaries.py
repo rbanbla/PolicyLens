@@ -23,6 +23,16 @@ class SummaryValidationTests(SimpleTestCase):
             with self.assertRaises(SummaryError):
                 validate_summary(bad, PAGES)
 
+    def test_pdf_whitespace_is_recovered_as_exact_source_text(self, provider):
+        pages = [{"label": "7쪽", "text": "AI  사용\n범위를 기록한다. 단, 교정은 제외한다."}]
+        result = deepcopy(RESULT)
+        result["items"][0]["citations"] = [{"page": 1, "quote": "AI 사용 범위를 기록한다. 단, 교정은 제외한다."}]
+        recovered = validate_summary(result, pages)["items"][0]["citations"][0]
+        self.assertEqual(recovered["quote"], pages[0]["text"])
+        result["items"][0]["citations"] = [{"page": 1, "quote": "AI 사용 범위를 금지한다. 단, 교정은 제외한다."}]
+        with self.assertRaises(SummaryError):
+            validate_summary(result, pages)
+
     @patch("server.integrations.transport.urlopen")
     def test_responses_transport(self, open_url, provider):
         open_url.return_value = BytesIO(json.dumps({"status": "completed", "id": "resp_test", "usage": {"input_tokens": 10},
