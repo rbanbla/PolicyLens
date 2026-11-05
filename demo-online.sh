@@ -45,6 +45,7 @@ export POLICYLENS_DEMO_USER=demo
 export POLICYLENS_DEMO_PASSWORD="$password"
 export POLICYLENS_PORT="$port"
 export POLICYLENS_SERVE_MODE=gunicorn
+printf '%s\n' "$url" > .demo/current-url.txt
 echo "외부 접속: $url"
 echo "참석자 로그인 정보: $PWD/.demo/credentials.txt"
 echo "이 터미널을 닫거나 Ctrl+C를 누르면 외부 접속이 종료됩니다."
