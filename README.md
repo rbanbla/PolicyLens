@@ -24,7 +24,7 @@ HCI 작업공간에서 `./policylens/start.sh`를 실행한다. `policylens/` �
 
 오늘 시연은 [데모 안내](DEMO.md)를 참고한다. 저장된 실제 검증 결과는 `/demo/`에서 모델 재호출 없이 볼 수 있다. 첫 화면의 제품 미리보기 원본과 검증 절차는 [Stageshow 소스](design/stageshow/README.md)에 있다.
 
-다른 기기에서 접속할 외부 서버 구성은 [Render 배포 설계](DEPLOYMENT.md)와 `render.yaml`에 준비했다. 로컬 서버 주소는 외부에서 접속할 수 없으며, Render 서비스 생성은 아직 하지 않았다.
+다른 기기에서 업로드·요약·토론까지 시연하는 무료 임시 경로는 [로컬 서버 + 외부 HTTPS 데모](LOCAL_ONLINE_DEMO.md)와 `./demo-online.sh`에 있다. 유료 상시 서버 대안은 [Render 배포 설계](DEPLOYMENT.md)에 준비했으며 서비스 생성은 하지 않았다.
 
 ## 검증
 

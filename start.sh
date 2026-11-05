@@ -11,7 +11,7 @@ if [[ ! -x "$python" ]]; then
     fi
     python3.11 -m venv .venv
 fi
-if ! "$python" -c 'import django, psycopg, pgserver, pypdf, dotenv, openpyxl, pyarrow' 2>/dev/null; then
+if ! "$python" -c 'import django, psycopg, pgserver, pypdf, dotenv, openpyxl, pyarrow, whitenoise, gunicorn' 2>/dev/null; then
     "$python" -m pip install -r requirements.txt pgserver==0.1.4
 fi
 pgbin=$("$python" -c 'import pgserver; from pathlib import Path; print(Path(pgserver.__file__).parent / "pginstall/bin")')
@@ -50,5 +50,15 @@ if [[ "$admin_exists" != 1 ]]; then
     echo "최초 실행입니다. 로그인에 사용할 연구자 계정을 만들어 주세요."
     "$python" manage.py createsuperuser
 fi
-echo "PolicyLens 접속: http://127.0.0.1:8000/ (종료: Ctrl+C)"
-"$python" manage.py runserver --noreload --insecure 127.0.0.1:8000
+port="${POLICYLENS_PORT:-8000}"
+if [[ ! "$port" =~ ^[0-9]{2,5}$ ]]; then
+    echo "POLICYLENS_PORT는 포트 번호여야 합니다." >&2
+    exit 1
+fi
+echo "PolicyLens 접속: http://127.0.0.1:$port/ (종료: Ctrl+C)"
+if [[ "${POLICYLENS_SERVE_MODE:-}" == "gunicorn" ]]; then
+    "$python" manage.py collectstatic --noinput --verbosity 0
+    "$python" -m gunicorn server.wsgi:application --bind "127.0.0.1:$port" --workers 2 --threads 8 --timeout 120
+else
+    "$python" manage.py runserver --noreload --insecure "127.0.0.1:$port"
+fi

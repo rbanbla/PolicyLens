@@ -9,6 +9,7 @@ ALLOWED_HOSTS = ["localhost", "127.0.0.1", "[::1]"]
 ON_RENDER = os.environ.get("RENDER") == "true"
 RENDER_ORIGIN = os.environ.get("RENDER_EXTERNAL_URL", "").rstrip("/")
 PUBLIC_ORIGIN = (os.environ.get("POLICYLENS_PUBLIC_ORIGIN") or RENDER_ORIGIN).rstrip("/")
+DEMO_GATE = bool(os.environ.get("POLICYLENS_DEMO_PASSWORD"))
 CSRF_TRUSTED_ORIGINS = []
 for origin in dict.fromkeys(filter(None, [RENDER_ORIGIN, PUBLIC_ORIGIN])):
     parsed = urlsplit(origin)
@@ -17,6 +18,8 @@ for origin in dict.fromkeys(filter(None, [RENDER_ORIGIN, PUBLIC_ORIGIN])):
     ALLOWED_HOSTS.append(parsed.hostname)
     CSRF_TRUSTED_ORIGINS.append(origin)
 if CSRF_TRUSTED_ORIGINS:
+    if not DEMO_GATE:
+        raise ValueError("POLICYLENS_DEMO_PASSWORD is required for a public URL")
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
@@ -35,7 +38,8 @@ INSTALLED_APPS = [
 ]
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
-    *(["whitenoise.middleware.WhiteNoiseMiddleware", "server.middleware.DemoBasicAuthMiddleware"] if ON_RENDER else []),
+    *(["whitenoise.middleware.WhiteNoiseMiddleware"] if ON_RENDER or PUBLIC_ORIGIN else []),
+    *(["server.middleware.DemoBasicAuthMiddleware"] if DEMO_GATE else []),
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware", "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware", "django.contrib.messages.middleware.MessageMiddleware",
@@ -56,7 +60,7 @@ TIME_ZONE = "Asia/Seoul"
 USE_TZ = True
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
-if ON_RENDER:
+if ON_RENDER or PUBLIC_ORIGIN:
     STORAGES = {
         "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
         "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
