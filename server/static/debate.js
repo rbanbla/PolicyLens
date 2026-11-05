@@ -1,29 +1,32 @@
 const root = document.querySelector('#debate');
 const form = document.querySelector('#debate-form');
-const button = document.querySelector('#debate-start');
+const retryButton = document.querySelector('#debate-retry');
 const statusText = document.querySelector('#debate-status');
 const progress = document.querySelector('#debate-progress');
+const waitText = document.querySelector('#debate-wait');
+const reviewNote = document.querySelector('#debate-review-note');
 const output = document.querySelector('#debate-output');
 const stages = {discover:'독립 쟁점 탐색',merge:'쟁점 교차 확인',opening:'독립 입장',reply:'교차 반론',draft:'수정안 초안',review:'역할별 검토',final:'수정 가이드라인'};
-const roles = {student:'학생',faculty:'교수',administration:'학사행정',moderator:'정리'};
+let currentData = null;
+let busy = false;
 function node(tag,text){const el=document.createElement(tag);el.textContent=text;return el;}
 async function post(url,values){
  const response=await fetch(url,{method:'POST',credentials:'same-origin',headers:{'X-CSRFToken':form.querySelector('[name=csrfmiddlewaretoken]').value},body:new URLSearchParams(values)});
  const data=await response.json().catch(()=>({}));
- if(!response.ok){if(data.calls)render(data);throw Error(data.error||'요청에 실패했습니다.');}return data;
+ if(!response.ok){if(data.calls){currentData=data;render(data);}throw Error(data.error||'요청에 실패했습니다.');}return data;
 }
 function render(data){
- output.replaceChildren();progress.hidden=false;progress.value=data.cursor;
- if(data.issues.length){output.append(node('h2','공통으로 검토할 쟁점'));for(const issue of data.issues){
+ output.replaceChildren();progress.value=data.cursor;
+ if(data.issues.length){output.append(node('h2','검토할 쟁점'));for(const issue of data.issues){
   const card=node('article','');card.className='issue';card.append(node('small',issue.id),node('h3',issue.question),node('blockquote',issue.citation.quote),node('p',issue.consequence));
   const detail=node('details','');detail.append(node('summary','두 해석과 적용 상황'),node('p',issue.interpretation_one),node('p',issue.interpretation_two),node('p','가정 상황 · '+issue.scenario));card.append(detail);output.append(card);
  }}
  for(const condition of ['A','B']){
-  const calls=data.calls.filter(c=>c.condition===condition);if(!calls.length)continue;
-  const section=node('section','');section.className='condition-result';section.append(node('h2',condition==='A'?'A · 역할 프롬프트':'B · 수집 자료 기반 잠정 결과'));
+  const calls=data.calls.filter(c=>c.condition===condition);if(!calls.some(c=>c.stage==='final'))continue;
+  const section=node('section','');section.className='condition-result';section.append(node('h2',condition==='A'?'A · 역할별 검토':'B · 자료를 반영한 검토 (잠정)'));
   const finals=calls.filter(c=>c.stage==='final');
   for(const call of finals)for(const statement of call.output.statements){const article=node('article','');article.className='issue';article.append(node('small',statement.issue_id+' · 검토 반영 제안'),node('h3',statement.position),node('blockquote',statement.proposal),node('p',statement.reason),node('h4','남은 이견'),node('p',statement.unresolved||'별도 기재 없음'));section.append(article);}
-  const log=node('details','');log.open=!finals.length;log.append(node('summary','발언·반론·수정 과정 확인'));
+  const log=node('details','');log.append(node('summary','발언·반론·수정 과정 확인'));
   for(const call of calls){const block=node('article','');block.className='turn';block.append(node('h3',stages[call.stage]+' · '+call.role));for(const statement of call.output.statements){
     const s=node('div','');s.id=statement.id;s.append(node('small',statement.id+' / '+statement.issue_id+' / '+statement.verdict),node('h4',statement.position),node('p',statement.reason));
     if(statement.proposal)s.append(node('blockquote',statement.proposal));
@@ -37,24 +40,43 @@ function render(data){
  }
  if(data.status==='complete'&&!data.issues.length)output.append(node('p','원문에서 확인 가능한 쟁점을 찾지 못해 토론을 생성하지 않았습니다.'));
 }
-form.addEventListener('submit',async event=>{
- event.preventDefault();button.disabled=true;document.querySelector('#use-profiles').disabled=true;
- try{let data=await post(root.dataset.start,{document_hash:root.dataset.hash,profiles:document.querySelector('#use-profiles').checked?'1':'0'});render(data);
- while(data.status!=='complete'){
-  statusText.textContent=`${data.cursor} / ${data.total} · ${data.next[0]} ${stages[data.next[1]]} · ${roles[data.next[2]]} 생성 중…`;
-  data=await post(`/api/debates/${data.id}/step/`,{cursor:String(data.cursor),retry:data.status==='failed'?'1':'0'});render(data);
- }
- statusText.textContent=completionMessage(data);
- }catch(error){statusText.textContent=error.message+' 다시 실행하면 마지막 성공 단계부터 이어집니다.';}
- finally{button.disabled=false;button.textContent='결과 확인 / 이어서 실행 →';document.querySelector('#use-profiles').disabled=false;}
-});
-function completionMessage(data){
- const base=data.issues.length?'검토가 완료됐습니다. B는 자료가 제한된 잠정 결과이며, 수정 가이드라인은 공식 정책이 아닙니다.':'원문에서 검증 가능한 쟁점을 찾지 못해 토론을 생성하지 않았습니다. 다른 정책 문서로 다시 검토할 수 있습니다.';
- return data.manual_review?base+' '+data.manual_review:base;
+function phaseMessage(data){
+ if(data.cursor<4)return '문서에서 해석이 갈릴 수 있는 조항을 찾고 있습니다…';
+ if(data.cursor<15)return '학생·교수·학사행정 관점에서 쟁점을 검토하고 있습니다…';
+ return '참고 자료를 반영해 수정 방향을 확인하고 있습니다…';
 }
-if(root.dataset.existing){
- fetch(`/api/debates/${encodeURIComponent(root.dataset.existing)}/`,{credentials:'same-origin'})
-  .then(response=>response.ok?response.json():null)
-  .then(data=>{if(!data)return;render(data);button.textContent='결과 확인 / 이어서 실행 →';statusText.textContent=data.status==='complete'?completionMessage(data):`${data.cursor} / ${data.total} 단계까지 저장됐습니다. 버튼을 누르면 이어서 실행합니다.`;})
-  .catch(()=>{});
+function complete(data){
+ statusText.textContent=data.issues.length?'검토가 완료됐습니다. 아래에서 쟁점과 수정 방향을 확인해 주세요.':'원문에서 확인 가능한 쟁점을 찾지 못했습니다. 다른 문서를 검토할 수 있습니다.';
+ progress.hidden=true;
+ waitText.hidden=true;
+ retryButton.hidden=true;
+ reviewNote.hidden=!data.manual_review;
+ reviewNote.textContent=data.manual_review||'';
 }
+function failed(message){
+ statusText.textContent=message+' 저장된 단계부터 다시 시도할 수 있습니다.';
+ waitText.hidden=true;
+ retryButton.hidden=false;
+}
+async function run(allowRetry=false){
+ if(busy)return;
+ busy=true;
+ retryButton.hidden=true;
+ waitText.hidden=false;
+ progress.hidden=false;
+ try{
+  currentData=await post(root.dataset.start,{document_hash:root.dataset.hash,profiles:'0'});
+  render(currentData);
+  if(currentData.status==='failed'&&!allowRetry){failed(currentData.error||'검토가 중단됐습니다.');return;}
+  while(currentData.status!=='complete'){
+   statusText.textContent=phaseMessage(currentData);
+   currentData=await post(`/api/debates/${currentData.id}/step/`,{cursor:String(currentData.cursor),retry:currentData.status==='failed'?'1':'0'});
+   progress.value=currentData.cursor;
+   if([4,15,26].includes(currentData.cursor))render(currentData);
+  }
+  complete(currentData);
+ }catch(error){failed(error instanceof TypeError?'서버 연결이 끊겼습니다.':error.message);}
+ finally{busy=false;}
+}
+retryButton.addEventListener('click',()=>run(true));
+run();

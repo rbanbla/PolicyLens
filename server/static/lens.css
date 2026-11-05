@@ -91,7 +91,7 @@ textarea{resize:vertical}
 .workspace>p{max-width:75ch}
 .narrow{max-width:760px;margin:auto}
 .review-grid{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);gap:22px;margin-top:30px;align-items:start}
-.source-panel,.context-panel,.generation-status,#debate-form{padding:clamp(20px,3vw,30px);border:1px solid #e0e9df;border-radius:20px;background:#fffefa;box-shadow:0 10px 28px #2d4a3410}
+.source-panel,.context-panel{padding:clamp(20px,3vw,30px);border:1px solid #e0e9df;border-radius:20px;background:#fffefa;box-shadow:0 10px 28px #2d4a3410}
 .source-heading h2{margin:10px 0;font-size:23px}
 .source-heading p{font-size:12px}
 #policy-summary{margin-top:26px}
@@ -114,15 +114,13 @@ summary{cursor:pointer;font-weight:650;color:#345b40}
 .next-stages li{padding:14px 0;border-bottom:1px solid var(--line)}
 .next-stages b{font-size:14px}
 .next-stages span{display:block;margin-top:5px;font-size:13px;color:var(--muted)}
-.generation-status{margin:25px 0}
-.generation-status h2{margin-bottom:10px;font-size:22px}
-.generation-status p{font-size:14px}
-.generation-status .all-link{margin-top:9px}
-#debate-form{margin:20px 0}
-.profile-option{display:flex;align-items:flex-start;gap:10px;font-weight:700}
-.profile-option input{width:18px;height:18px;margin:3px 0 0;flex:none;accent-color:var(--accent)}
-#debate-form small{display:block;margin:9px 0 18px;color:var(--muted)}
-#debate-status{margin:22px 0 10px;font-size:14px}
+.result-progress{margin:24px 0 30px;padding:18px 22px;border:1px solid #dce8dc;border-radius:16px;background:#f8fbf7}
+#debate-status{margin:0 0 10px;font-size:14px;font-weight:650}
+.result-progress .upload-note{margin:9px 0 0;font-size:13px}
+#debate-retry{margin-top:14px}
+.result-method{margin:34px 0 10px;font-size:14px}
+.result-method p{max-width:70ch;line-height:1.65}
+.result-method .all-link{display:inline-block;margin-top:6px}
 progress{width:100%;height:9px;accent-color:var(--accent)}
 .condition-result{margin:38px 0}
 .condition-result h2{margin-bottom:15px}
@@ -192,7 +190,7 @@ pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px}
   .workspace{padding:24px 0 34px}
   .workspace>h1{font-size:32px}
   .review-grid{grid-template-columns:1fr;gap:17px;margin-top:22px}
-  .source-panel,.context-panel,.generation-status,#debate-form{padding:20px}
+  .source-panel,.context-panel{padding:20px}
   .source-scroll{max-height:340px}
   .library,.document{padding:28px 0}
   .alternatives{grid-template-columns:1fr}
