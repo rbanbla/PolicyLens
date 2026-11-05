@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+.env
+.pgdata/
+design/stageshow/node_modules/
+design/stageshow/dist/
+.demo/
+research/
+data/b/
+staticfiles/
+*.pyc
+.DS_Store

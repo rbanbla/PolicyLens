@@ -1,0 +1,21 @@
+{% load static %}<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#f6f7f3">
+  <title>PolicyLens · 정책 읽기</title>
+  <link rel="stylesheet" href="{% static 'lens.css' %}?v=20261105-1">
+</head>
+<body>
+  <header>
+    <a class="brand" href="/"><i aria-hidden="true"></i>PolicyLens</a>
+    <nav aria-label="주 메뉴">
+      <a class="research" href="{% url 'catalogue' %}">전체 정책</a>
+      <a class="research" href="/research/">연구자 공간 ↗</a>
+    </nav>
+  </header>
+  <main>{% block content %}{% endblock %}</main>
+  <footer><span>POLICYLENS</span><span>HCI RESEARCH PROJECT</span></footer>
+</body>
+</html>

@@ -1,0 +1,192 @@
+{
+  "policy": "제1조 과제에 AI를 활용할 수 있다.\n제2조 과제에 사용한 AI 도구를 공개한다.\n제3조 담당 교수는 학생이 구성한 논거의 배열과 타당성을 평가한다.",
+  "evidence": {
+    "student": [
+      {
+        "id": "760b597a9070bd5b03e61bcc6f4f94aa2fffc11b3ee59a9905fca930113de049",
+        "kind": "participant_excerpt",
+        "text": "If that's it. So that's so interesting that she's building on by herself, but comparing humans to \nrobot evolution, we have thousands of neurons. Our brain is working at a pace that even a \nhigh or any sort of system cannot keep up to. They can do things that's very impressive. \nThat's amazing, like charge. Gpd 4.0 can generate images and videos. That's amazing. But \nwhat we can do is also pretty amazing that I don't think they can ever be a culmination of \nboth of them. \nIn a perfect sense. \nSo it is great in the future if people are using AI for grading, I would say OK. But I do feel bad \nthat you're not getting acknowledge for your own hard work that a professor would \nunderstand so much more better than an AI would. I think that's just my perspective.",
+        "context": "Surrey, UK higher education focus groups; CC BY 4.0. Not a Korean student representative. Interviewer context: For the sake of the argument, you know you've heard of Sophia], right? \nThe robot.I believe that she now lives somewhere in Dubai.",
+        "locator": "PDF 117쪽 / group 6 / Part009 / segment 1",
+        "source": "https://openresearch.surrey.ac.uk/view/pdfCoverPage?download=true&filePid=13234674640002346&instCode=44SUR_INST",
+        "asset_path": "policylens/research/2026-11-02/DATA/surrey_focus.pdf",
+        "source_sha256": "771df736f3ef6a17aa4e15cc9e26a894addeea0ff13fd401fe3aff7c6ed203cd"
+      },
+      {
+        "id": "e4e5954eb029bf61e13c7eb20a2d7c98dffddd902fa7a29247a4be2422762223",
+        "kind": "participant_excerpt",
+        "text": "Absolutely, yeah, very optimistic coming in the second be lots of AI like peep AI is literally \njust about system and debug. And I think it's really important to acknowledge there's lots of \npowerful Ai's. And what was one thing is that it just will keep developing no matter what. \nWe're never going to reach an end of AI and I think that's the most important thing is that \nright now it may not be, but in I don't know, a year it will probably will. And I think that open \nmind is very key to the uncertainty of the world. \n \nA Interviewer  \nnd other than the obvious and what has already been buffer this, what challenges do you \nenvisage in terms of using AI to provide? Assessment feedback. Grading assessments.",
+        "context": "Surrey, UK higher education focus groups; CC BY 4.0. Not a Korean student representative. Interviewer context: And how do you feel about AI giving you a mark of 60 and you expected 80?",
+        "locator": "PDF 69쪽 / group 4 / Part017 / segment 3",
+        "source": "https://openresearch.surrey.ac.uk/view/pdfCoverPage?download=true&filePid=13234674640002346&instCode=44SUR_INST",
+        "asset_path": "policylens/research/2026-11-02/DATA/surrey_focus.pdf",
+        "source_sha256": "771df736f3ef6a17aa4e15cc9e26a894addeea0ff13fd401fe3aff7c6ed203cd"
+      },
+      {
+        "id": "00947ab92a251d3c0eaafd3f6232b821ae29111c286aceb07c59fef85962797c",
+        "kind": "participant_excerpt",
+        "text": "Yeah. So I think on ChatGPT, you can attach files. So I did attach the great descriptors like \nattach the great descriptors and like you can put in your essay like or read my essay and see \nwhere I fall on the brave descriptors. And it does give you a great associate fall between 62 \nwherever. And it's kind of semi accurate I would say because when I did eventually get my \ngrade back, it was kind of around that range. So it wasn't far off, but it really didn't give any \nother feedback. But like, yeah, you just within this range just generic feedback like nothing, \nnothing crazy. So that what you would normally get anyway that kind of generate good \nwork. Maybe referencing this data? That's it, just a lecturer will give you anyways. Some \nlecturers go detailed, some give generic stuff so a generic version of feedback.",
+        "context": "Surrey, UK higher education focus groups; CC BY 4.0. Not a Korean student representative. Interviewer context: Have you ever submitted work? For AI to give you feedback before you submit it for the \nuniversity, have you ever sought feedback from AI?",
+        "locator": "PDF 63쪽 / group 4 / Part018 / segment 5",
+        "source": "https://openresearch.surrey.ac.uk/view/pdfCoverPage?download=true&filePid=13234674640002346&instCode=44SUR_INST",
+        "asset_path": "policylens/research/2026-11-02/DATA/surrey_focus.pdf",
+        "source_sha256": "771df736f3ef6a17aa4e15cc9e26a894addeea0ff13fd401fe3aff7c6ed203cd"
+      },
+      {
+        "id": "01eedcb2923646c64e88c8e611e9b0deddb7fa32c6dfca97be5e9e5542f83053",
+        "kind": "participant_excerpt",
+        "text": "I do agree with what she says and it will be really quick and easy for AI to go through and \ngive feedback to everybody in a reasonable time. I do feel that human should get involved. \nThey really need to be involved, let's say, as you said, you know, they don't, they don't \nsatisfied with their grade, OK. They will reach out to the lecturer. Oh yeah, that's \nunderstandable. So yeah.",
+        "context": "Surrey, UK higher education focus groups; CC BY 4.0. Not a Korean student representative. Interviewer context: And do you think that would be at all feasible for higher education institutions at some point \nto adopt Gen AI in grading students work without any human interference?",
+        "locator": "PDF 91쪽 / group 6 / Part013 / segment 1",
+        "source": "https://openresearch.surrey.ac.uk/view/pdfCoverPage?download=true&filePid=13234674640002346&instCode=44SUR_INST",
+        "asset_path": "policylens/research/2026-11-02/DATA/surrey_focus.pdf",
+        "source_sha256": "771df736f3ef6a17aa4e15cc9e26a894addeea0ff13fd401fe3aff7c6ed203cd"
+      },
+      {
+        "id": "031a34f0715023be38d41a12b9fa1a22807bf124d24d6e8e79fc792ae617e6a1",
+        "kind": "participant_excerpt",
+        "text": "but then when the lecturer says the questions, the lecture should know what he expects from \nthe students, right? Why do you expect that AI to tell you? OK, this is what I wanted. Then \nthe lecturers. OK, yes. I'm taking that the lecture before setting the questions. Why setting \nthe question? We should have an idea of what you expect from the students basically. That's \nwhy you're setting the questions. So not when you're correcting the AI is AI will tell you, OK, \nthis answer is correctly. This answer is this is my opinion. Yeah, of course A I can assist the \nlecturers and saving time, but. \nIt's not after. After getting all the coursework all the. Assignments from us that. The lecturers \nshould now go and find about the answers that. You want to be expect from the students \nbasically that sense.",
+        "context": "Surrey, UK higher education focus groups; CC BY 4.0. Not a Korean student representative. Interviewer context: OK, so you feel that if AI marks your work, AI will benchmark your work against the \ninformation that AI has and not against what was taught in the modules by the lecturer.",
+        "locator": "PDF 45쪽 / group 3 / Part023 / segment 7",
+        "source": "https://openresearch.surrey.ac.uk/view/pdfCoverPage?download=true&filePid=13234674640002346&instCode=44SUR_INST",
+        "asset_path": "policylens/research/2026-11-02/DATA/surrey_focus.pdf",
+        "source_sha256": "771df736f3ef6a17aa4e15cc9e26a894addeea0ff13fd401fe3aff7c6ed203cd"
+      },
+      {
+        "id": "0cda5c8a0f1dad462f3db9aef7c4a919fa4d28ba697c0156ddc3bbdc46736656",
+        "kind": "participant_excerpt",
+        "text": "I can see a correlation between the number of students that again sign that consent sheet. \nSo if those students that sign that consent sheet for AI feedback, it might correlate with, like, \nlet those students not attending lectures, you know? Yeah, I can see that happening.",
+        "context": "Surrey, UK higher education focus groups; CC BY 4.0. Not a Korean student representative. Interviewer context: Yeah. And and what do you think might cause that change to happen?",
+        "locator": "PDF 55쪽 / group 3 / Part024 / segment 5",
+        "source": "https://openresearch.surrey.ac.uk/view/pdfCoverPage?download=true&filePid=13234674640002346&instCode=44SUR_INST",
+        "asset_path": "policylens/research/2026-11-02/DATA/surrey_focus.pdf",
+        "source_sha256": "771df736f3ef6a17aa4e15cc9e26a894addeea0ff13fd401fe3aff7c6ed203cd"
+      }
+    ],
+    "faculty": [
+      {
+        "id": "1c86e6f7505ed6651a3bafa9fd9d29bbeb7d194ebe9f3b49a2a5384cf0ff4bb1",
+        "kind": "survey_aggregate",
+        "text": "{\"question\": \"Using AI tools will (or already does) improve overall teaching and academic processes\", \"eligible_educators\": 139, \"valid_responses\": 139, \"counts\": {\"Disagree\": 17, \"Somewhat agree\": 41, \"Somewhat disagree\": 17, \"Don't know\": 35, \"Agree\": 29}}",
+        "context": "Iatrellis educator survey, Zenodo 14790575, CC BY 4.0. Higher education educators, not necessarily professors. Aggregate responses, not individual quotations; location not established.",
+        "locator": "Sheet1 column 6; university educator=Yes; rows 2–140",
+        "source": "https://zenodo.org/api/records/14790575/files/Generative%20AI%20and%20educator's%20perspectives(1-139).xlsx/content",
+        "asset_path": "policylens/research/2026-11-02/DATA/faculty_1.xlsx",
+        "source_sha256": "db53bd2792c1ac1aadf7218b0f308910c67f5bcb45cd24fa5561cdf2458a9db8"
+      },
+      {
+        "id": "4a1b6ad60a4daec59e43a436e54ce412b0a7a735bf082f1dd99db63ac36e39c4",
+        "kind": "survey_aggregate",
+        "text": "{\"question\": \"Educators need more support and training to use AI tools effectively and responsibly\", \"eligible_educators\": 139, \"valid_responses\": 139, \"counts\": {\"Agree\": 106, \"Don't know\": 10, \"Somewhat agree\": 16, \"Disagree\": 5, \"Somewhat disagree\": 2}}",
+        "context": "Iatrellis educator survey, Zenodo 14790575, CC BY 4.0. Higher education educators, not necessarily professors. Aggregate responses, not individual quotations; location not established.",
+        "locator": "Sheet1 column 9; university educator=Yes; rows 2–140",
+        "source": "https://zenodo.org/api/records/14790575/files/Generative%20AI%20and%20educator's%20perspectives(1-139).xlsx/content",
+        "asset_path": "policylens/research/2026-11-02/DATA/faculty_1.xlsx",
+        "source_sha256": "db53bd2792c1ac1aadf7218b0f308910c67f5bcb45cd24fa5561cdf2458a9db8"
+      },
+      {
+        "id": "5e8460727af406bbb091c841a6f998cba24091da9c4509dfeba3d16a85ce4ace",
+        "kind": "survey_aggregate",
+        "text": "{\"question\": \"Seek answers from AI before approaching a course instructor or teaching assistant\", \"eligible_educators\": 139, \"valid_responses\": 139, \"counts\": {\"Somewhat agree\": 48, \"Agree\": 52, \"Don't know\": 24, \"Somewhat disagree\": 11, \"Disagree\": 4}}",
+        "context": "Iatrellis educator survey, Zenodo 14790575, CC BY 4.0. Higher education educators, not necessarily professors. Aggregate responses, not individual quotations; location not established.",
+        "locator": "Sheet1 column 12; university educator=Yes; rows 2–140",
+        "source": "https://zenodo.org/api/records/14790575/files/Generative%20AI%20and%20educator's%20perspectives(1-139).xlsx/content",
+        "asset_path": "policylens/research/2026-11-02/DATA/faculty_1.xlsx",
+        "source_sha256": "db53bd2792c1ac1aadf7218b0f308910c67f5bcb45cd24fa5561cdf2458a9db8"
+      },
+      {
+        "id": "66f9ff5a7d46d5d6eaa7dfc9b7d18ca384715729b95aae75b47749d686f53022",
+        "kind": "survey_aggregate",
+        "text": "{\"question\": \"Use these AI tools to better understand academic and career pathways\", \"eligible_educators\": 139, \"valid_responses\": 139, \"counts\": {\"Agree\": 39, \"Somewhat agree\": 46, \"Don't know\": 32, \"Disagree\": 12, \"Somewhat disagree\": 10}}",
+        "context": "Iatrellis educator survey, Zenodo 14790575, CC BY 4.0. Higher education educators, not necessarily professors. Aggregate responses, not individual quotations; location not established.",
+        "locator": "Sheet1 column 13; university educator=Yes; rows 2–140",
+        "source": "https://zenodo.org/api/records/14790575/files/Generative%20AI%20and%20educator's%20perspectives(1-139).xlsx/content",
+        "asset_path": "policylens/research/2026-11-02/DATA/faculty_1.xlsx",
+        "source_sha256": "db53bd2792c1ac1aadf7218b0f308910c67f5bcb45cd24fa5561cdf2458a9db8"
+      },
+      {
+        "id": "6ae36a77d5867d53c2b36500c09734dcd93672f1290d8acbce12e3cdf7dd3fee",
+        "kind": "survey_aggregate",
+        "text": "{\"question\": \"Using AI tools will (or already does) streamline administrative tasks\", \"eligible_educators\": 139, \"valid_responses\": 139, \"counts\": {\"Agree\": 73, \"Don't know\": 20, \"Somewhat agree\": 27, \"Somewhat disagree\": 11, \"Disagree\": 8}}",
+        "context": "Iatrellis educator survey, Zenodo 14790575, CC BY 4.0. Higher education educators, not necessarily professors. Aggregate responses, not individual quotations; location not established.",
+        "locator": "Sheet1 column 8; university educator=Yes; rows 2–140",
+        "source": "https://zenodo.org/api/records/14790575/files/Generative%20AI%20and%20educator's%20perspectives(1-139).xlsx/content",
+        "asset_path": "policylens/research/2026-11-02/DATA/faculty_1.xlsx",
+        "source_sha256": "db53bd2792c1ac1aadf7218b0f308910c67f5bcb45cd24fa5561cdf2458a9db8"
+      },
+      {
+        "id": "86c8c20c10d91bb1f73043d415055ed7d3b4549fdfb15347412733ed5970bbbc",
+        "kind": "survey_aggregate",
+        "text": "{\"question\": \"Using AI tools will (or already does) enhance inclusivity in learning outcomes\", \"eligible_educators\": 139, \"valid_responses\": 139, \"counts\": {\"Disagree\": 22, \"Don't know\": 46, \"Somewhat agree\": 31, \"Agree\": 29, \"Somewhat disagree\": 11}}",
+        "context": "Iatrellis educator survey, Zenodo 14790575, CC BY 4.0. Higher education educators, not necessarily professors. Aggregate responses, not individual quotations; location not established.",
+        "locator": "Sheet1 column 7; university educator=Yes; rows 2–140",
+        "source": "https://zenodo.org/api/records/14790575/files/Generative%20AI%20and%20educator's%20perspectives(1-139).xlsx/content",
+        "asset_path": "policylens/research/2026-11-02/DATA/faculty_1.xlsx",
+        "source_sha256": "db53bd2792c1ac1aadf7218b0f308910c67f5bcb45cd24fa5561cdf2458a9db8"
+      }
+    ],
+    "administration": [
+      {
+        "id": "2192cf61538bfd0b5953e6c4129f6b651d9379e1d32935fe3979bdb34a425acc",
+        "kind": "institutional_proxy",
+        "text": "학술단체                                 생성형 AI 자료 사용\n                        · 연구 출판에서 ChatGPT 또는 거대언어모델(LLM)과 같은 AI tool의 사용이\n                          급속히 늘어나고 있다.\n                        · 논문의 원고 작성, 이미지 또는 그래픽 요소 제작, 데이터 수집 및 분석 등에서\n    국제학술지                 AI 도구를 사용한 저자는 논문의 재료 및 방법론(또는 유사한 섹션)에서 어떤 AI\n 출판윤리위원회(COPE)            도구가 어떻게 사용되었는지를 명확하게 공개해야 한다.\n                        · 저자들은 AI tool에 의해 산출된 부분을 포함하여 그들의 논문 원고 내용에 대해\n                          전적으로 책임을 져야 한다. 따라서 저자들은 어떠한 출판윤리 위반에 대해서도\n                          책임을 져야 한다.",
+        "context": "한경국립대학교; region=KR; official institutional guidance, NOT an administrator interview. Comparative reference only; not an obligation in the uploaded policy.",
+        "locator": "policy_text/KR_hknu.txt paragraph 163",
+        "source": "https://www.hknu.ac.kr/bbs/eduinvt/424/110495/download.do",
+        "asset_path": "policylens/research/2026-11-02/KR/hknu.pdf",
+        "source_sha256": "a95d89837ff40561011862c0385b980aa666bd27f257880ebdceeb4a1a7fd456"
+      },
+      {
+        "id": "753e8d1b89f15b22156a62b97b1a90d8b9ceda89360cd0c78c1351b180f27d6c",
+        "kind": "institutional_proxy",
+        "text": "학술단체                                   생성형 AI 자료 사용\n                        · \u0007연구 출판에서 ChatGPT 또는 거대언어모델(LLM)과 같은 AI tool의 사용이\n                           급속히 늘어나고 있다.\n                        · \u0007논문의 원고 작성, 이미지 또는 그래픽 요소 제작, 데이터 수집 및 분석 등에서\n    국제학술지                  AI 도구를 사용한 저자는 논문의 재료 및 방법론(또는 유사한 섹션)에서 어떤 AI\n 출판윤리위원회(COPE)             도구가 어떻게 사용되었는지를 명확하게 공개해야 한다.\n                        · \u0007저자들은 AI tool에 의해 산출된 부분을 포함하여 그들의 논문 원고 내용에 대해\n                           전적으로 책임을 져야 한다. 따라서 저자들은 어떠한 출판윤리 위반에 대해서도\n                           책임을 져야 한다.",
+        "context": "연세대학교; region=KR; official institutional guidance, NOT an administrator interview. Comparative reference only; not an obligation in the uploaded policy.",
+        "locator": "policy_text/KR_yonsei.txt paragraph 105",
+        "source": "https://yfl.yonsei.ac.kr/fresh/infomation/administration.do?articleNo=190087&attachNo=161940&mode=download",
+        "asset_path": "policylens/research/2026-11-02/KR/yonsei.pdf",
+        "source_sha256": "98e7d01d09bb1112915bc2f7149d228b9140d694958b9bf7085f8a4316af9913"
+      },
+      {
+        "id": "81b09cf267326bcf2c9a5613590a825b82d4a98d0a6235d52d51672957e55b24",
+        "kind": "institutional_proxy",
+        "text": "① 생성형 AI 산출물을 복사하여 과제에 그대로 붙인 채 출처를 표기하지 않는 행위\n  ② 생성형 AI 산출물의 출처를 표기하지 않은 채 짜깁기하는 행위\n  ③ 생성형 AI를 활용하여 거짓 정보, 거짓 경험을 작성하거나 유포하는 행위\n  ④ 생성형 AI를 활용하여 타인의 저작권, 지식재산권을 불법적으로 침해하는 행위\n  ⑤ 생성형 AI 사용이 전면 금지된 수업에서 생성형 AI를 사용한 행위\n  ⑥ 기타 학문 정직성과 신뢰성을 해치는 행위",
+        "context": "전남대학교; region=KR; official institutional guidance, NOT an administrator interview. Comparative reference only; not an obligation in the uploaded policy.",
+        "locator": "policy_text/KR_jnu.txt paragraph 45",
+        "source": "https://geo.jnu.ac.kr/bbs/geo/1868/816003/download.do",
+        "asset_path": "policylens/research/2026-11-02/KR/jnu.pdf",
+        "source_sha256": "4fdf26dd9f67b773503bab62d341c2e94a90a1478ce2066398811353ec158fb1"
+      },
+      {
+        "id": "00c206948d8f94b2cabe6952bd354941eba296e5ba0ba29ecb584d617cd2566f",
+        "kind": "institutional_proxy",
+        "text": "Students and faculty who choose to use generative AI tools for course assignments, academic work, or other forms of published writing must give careful attention to how AI-generated output is acknowledged and cited. Students must consult with instructors prior to using GenAI tools in coursework.",
+        "context": "ASU US R1 university policy corpus; region=INT; institutional policy text, NOT administrator opinion. Comparative context only; may be an older policy version.",
+        "locator": "ZIP corpus/Marquette_University_2026.txt paragraph 26",
+        "source": "https://dataverse.asu.edu/api/access/datafile/41511",
+        "asset_path": "policylens/research/2026-11-02/DATA/asu_41511.zip",
+        "source_sha256": "a31d0dd21ce93a783ea3fc0216cea472c3da5cc4eb7b978769c251619fb7dcf3"
+      },
+      {
+        "id": "0ef075a04af88cfa4cc7af707b5dc63deb32b4f19d3fdc9d8cbb10c069748681",
+        "kind": "institutional_proxy",
+        "text": "10. Be transparent about what you do\n                                 If you are permitted to use these tools for assessments, document how you\n                                 have interacted with the tools and what you have done with the outputs from\n                                 them. Some tools allow you to save and share links to conversations; in other\n                                 cases, it is worth keeping a ‘gen AI lab book’ that details what was done and\n                                 how it was used in preparation for an assessment. You should transparently\n                                 acknowledge the use of these tools in cases where they are permitted (such\n                                 as we have done in the footer of this document). This transparency is an\n                                 important component of acting with integrity as a scholar.\n                                     Resource links:\n                                 The Artificial Intelligence Disclosure (AID) Framework gives good examples\n                                 of how to describe your use of these tools for education and research.\n                                 UBC Library’s guide on citing generative AI use.",
+        "context": "University of British Columbia; region=INT; official institutional guidance, NOT an administrator interview. Comparative reference only; not an obligation in the uploaded policy.",
+        "locator": "policy_text/INT_ubc.txt paragraph 15",
+        "source": "https://academic.ubc.ca/sites/default/files/2025-09/UBC-10-Things-AI.pdf",
+        "asset_path": "policylens/research/2026-11-02/INT/ubc.pdf",
+        "source_sha256": "423ef17fab8661b5c9eac33bb69b5f6afa6ff407dd4cce74569b538b05314027"
+      },
+      {
+        "id": "171e96351a71926bcda0830da5b2eb70237d726925641fdb5f479dd4bdb4de29",
+        "kind": "institutional_proxy",
+        "text": "This course assumes that work submitted for a grade by students – all process work, drafts, brainstorming artifacts, final works – will be generated by the students themselves, working individually or in groups as directed by class assignment instructions. This policy indicates the following constitute violations of academic honesty: a student has another person/entity do the work of any substantive portion of a graded assignment for them, which includes purchasing work from a company, hiring a person or company to complete an assignment or exam, and/or using generativeArtificial Intelligencetools (such as ChatGPT).\nGenerative Articial Intelligence is permitted in specific contexts and with acknowledgment",
+        "context": "ASU US R1 university policy corpus; region=INT; institutional policy text, NOT administrator opinion. Comparative context only; may be an older policy version.",
+        "locator": "ZIP corpus/University_of_South_Carolina_2026.txt paragraph 28",
+        "source": "https://dataverse.asu.edu/api/access/datafile/41511",
+        "asset_path": "policylens/research/2026-11-02/DATA/asu_41511.zip",
+        "source_sha256": "a31d0dd21ce93a783ea3fc0216cea472c3da5cc4eb7b978769c251619fb7dcf3"
+      }
+    ]
+  },
+  "sha256": "a3d3f9c6f0bd08e95e308438b7a53f2ef4a401daab442d958ce3bf48f01ddcef"
+}

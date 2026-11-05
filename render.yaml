@@ -1,0 +1,42 @@
+databases:
+  - name: policylens-db
+    region: singapore
+    plan: 0.1c-256mb
+    databaseName: policylens
+    user: policylens
+    diskSizeGB: 5
+    ipAllowList: []
+
+services:
+  - type: web
+    name: policylens-demo
+    runtime: python
+    region: singapore
+    plan: 1c-2g
+    buildCommand: ./deploy/build.sh
+    preDeployCommand: python manage.py migrate --noinput && python manage.py seed_deploy
+    startCommand: ./deploy/start.sh
+    healthCheckPath: /health/
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.11
+      - key: DATABASE_URL
+        fromDatabase:
+          name: policylens-db
+          property: connectionString
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: POLICYLENS_DEMO_USER
+        value: demo
+      - key: POLICYLENS_DEMO_PASSWORD
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_BASE_URL
+        value: https://llm.ai.hy.miwork.ai/v1
+      - key: POLICYLENS_API_MODE
+        value: chat_completions
+      - key: POLICYLENS_SUMMARY_MODEL
+        value: gpt-5.6-luna
+      - key: POLICYLENS_DEBATE_MODEL
+        value: gpt-5.6-luna

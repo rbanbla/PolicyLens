@@ -1,0 +1,30 @@
+.pl-stage .ss-stage{overflow:hidden;border-radius:20px;background:linear-gradient(140deg,#dae9dd 0%,#edf1e8 55%,#cbdccd 100%)}
+.pl-stage .pl-window{position:absolute;top:22px;left:24px;width:540px;height:310px;background:#fffefa;border-radius:14px;box-shadow:0 22px 52px #2a47301f}
+.pl-stage .pl-window .ss-window__body{background:#fffefa}
+.pl-stage .pl-page{padding:18px 20px;width:420px}
+.pl-stage .pl-eyebrow{display:block;font-size:10px;font-weight:750;letter-spacing:.03em;color:#719079}
+.pl-stage .pl-title{display:block;margin-top:6px;font-size:18px;line-height:1.25;font-weight:750;letter-spacing:-.04em;color:#263e30}
+.pl-stage .pl-quote{display:block;margin-top:10px;padding:9px 11px;border-left:3px solid #7fa588;border-radius:3px 6px 6px 3px;background:#edf2eb;color:#465c4d;font-size:11px;line-height:1.4}
+.pl-stage .pl-issue{display:flex;align-items:center;gap:9px;margin:12px 0 5px}
+.pl-stage .pl-issue-index{flex:none;padding:4px 7px;border-radius:6px;background:#e2eee4;color:#406b4e;font-size:10px;font-weight:750}
+.pl-stage .pl-issue-title{font-size:12px;font-weight:750;color:#284935}
+.pl-stage .pl-roles{width:375px}
+.pl-stage .pl-roles .ss-row{border-bottom:1px solid #ebeee9}
+.pl-stage .pl-role-name{font-size:11px;font-weight:700;color:#375441}
+.pl-stage .pl-role-note{font-size:10px;color:#52665a;white-space:nowrap}
+.pl-stage .pl-result{position:absolute;right:22px;bottom:22px;width:285px;padding:11px 14px 10px;border:1px solid #e3e9df;border-radius:12px;background:#fffefa;box-shadow:0 12px 28px #2a403131;display:grid;gap:2px}
+.pl-stage .pl-result-label{font-size:10px;font-weight:750;color:#5b8065}
+.pl-stage .pl-result-title{font-size:12px;font-weight:750;line-height:1.3;color:#253d2e}
+.pl-stage .pl-result-foot{font-size:10px;color:#79877b}
+.pl-stage [data-layout="compact"] .pl-window{top:18px;left:17px;width:380px;height:279px}
+.pl-stage [data-layout="compact"] .pl-page{padding:14px 15px;width:332px}
+.pl-stage [data-layout="compact"] .pl-title{font-size:16px}
+.pl-stage [data-layout="compact"] .pl-quote{font-size:10px;margin-top:8px}
+.pl-stage [data-layout="compact"] .pl-issue{margin:9px 0 4px;gap:6px}
+.pl-stage [data-layout="compact"] .pl-issue-title{font-size:11px}
+.pl-stage [data-layout="compact"] .pl-roles{width:295px}
+.pl-stage [data-layout="compact"] .pl-role-name{font-size:10px}
+.pl-stage [data-layout="compact"] .pl-role-note{font-size:10px}
+.pl-stage [data-layout="compact"] .pl-result{left:17px;right:17px;bottom:17px;width:auto;padding:9px 11px}
+.pl-stage [data-layout="compact"] .pl-result-title{font-size:11px}
+.pl-stage [data-layout="compact"] .pl-result-foot{font-size:10px}
