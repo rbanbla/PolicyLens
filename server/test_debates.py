@@ -43,6 +43,13 @@ class DebateTests(TestCase):
         with self.assertRaises(ValueError):
             check_citation({"page": 1, "quote": "AI 사용 범위를 금지한다."}, pair)
 
+    def test_escaped_newline_and_wrong_list_marker_keep_exact_source(self, config):
+        pair = SimpleNamespace(document={"pages": [{"text": "2 사용 허용 (자유롭게 사용)\n- 수업 활동에서 AI 사용이 가능하다."}]})
+        citation = {"page": 1, "quote": "③ 사용 허용 (자유롭게 사용)\\n- 수업 활동에서 AI 사용이 가능하다."}
+        check_citation(citation, pair)
+        self.assertIn(citation["quote"], pair.document["pages"][0]["text"])
+        self.assertNotIn("③", citation["quote"])
+
     def setUp(self):
         asset = ResearchAsset.objects.create(path="test", title="Test", category="opinion_dataset")
         for role in ["student", "faculty", "administration"]:

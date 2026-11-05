@@ -241,7 +241,7 @@ def serialize(pair):
               "output": c.response, "attempts": c.attempts} for c in pair.calls.order_by("step") if c.response]
     return {"id": str(pair.pk), "cursor": pair.cursor, "total": len(STEPS), "status": pair.status,
             "error": pair.error, "issues": pair.issues, "calls": calls, "evidence": pair.evidence,
-            "profiles": pair.profiles, "provisional_b": True,
+            "profiles": pair.profiles, "provisional_b": True, "manual_review": pair.spec.get("manual_review", ""),
             "next": list(STEPS[pair.cursor]) if pair.cursor < len(STEPS) else None}
 
 

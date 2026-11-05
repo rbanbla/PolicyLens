@@ -44,7 +44,17 @@ form.addEventListener('submit',async event=>{
   statusText.textContent=`${data.cursor} / ${data.total} · ${data.next[0]} ${stages[data.next[1]]} · ${roles[data.next[2]]} 생성 중…`;
   data=await post(`/api/debates/${data.id}/step/`,{cursor:String(data.cursor),retry:data.status==='failed'?'1':'0'});render(data);
  }
- statusText.textContent=data.issues.length?'검토가 완료됐습니다. B는 자료가 제한된 잠정 결과이며, 수정 가이드라인은 공식 정책이 아닙니다.':'원문에서 검증 가능한 쟁점을 찾지 못해 토론을 생성하지 않았습니다. 다른 정책 문서로 다시 검토할 수 있습니다.';
+ statusText.textContent=completionMessage(data);
  }catch(error){statusText.textContent=error.message+' 다시 실행하면 마지막 성공 단계부터 이어집니다.';}
  finally{button.disabled=false;button.textContent='결과 확인 / 이어서 실행 →';document.querySelector('#use-profiles').disabled=false;}
 });
+function completionMessage(data){
+ const base=data.issues.length?'검토가 완료됐습니다. B는 자료가 제한된 잠정 결과이며, 수정 가이드라인은 공식 정책이 아닙니다.':'원문에서 검증 가능한 쟁점을 찾지 못해 토론을 생성하지 않았습니다. 다른 정책 문서로 다시 검토할 수 있습니다.';
+ return data.manual_review?base+' '+data.manual_review:base;
+}
+if(root.dataset.existing){
+ fetch(`/api/debates/${encodeURIComponent(root.dataset.existing)}/`,{credentials:'same-origin'})
+  .then(response=>response.ok?response.json():null)
+  .then(data=>{if(!data)return;render(data);button.textContent='결과 확인 / 이어서 실행 →';statusText.textContent=data.status==='complete'?completionMessage(data):`${data.cursor} / ${data.total} 단계까지 저장됐습니다. 버튼을 누르면 이어서 실행합니다.`;})
+  .catch(()=>{});
+}
