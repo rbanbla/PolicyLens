@@ -1,0 +1,33 @@
+{% load i18n %}<nav class="journey" aria-label="{% trans '검토 과정' %}">
+<a href="{% url 'home' %}" {% if not run %}aria-current="page"{% endif %}>
+<b>1</b>
+<span>{% trans '문서 넣기' %}</span>
+</a>
+{% if run %}
+<a href="{% url 'review' run.pk %}?page=summary" {% if phase == 'summary' %}aria-current="page"{% endif %}>
+<b>2</b>
+<span>{% trans '핵심 요약' %}</span>
+</a>
+<a href="{% url 'review' run.pk %}?page=discussion" {% if phase == 'discussion' %}aria-current="page"{% endif %}>
+<b>3</b>
+<span>{% trans '입장 나누기' %}</span>
+</a>
+<a href="{% url 'review' run.pk %}?page=review" {% if phase == 'review' %}aria-current="page"{% endif %}>
+<b>4</b>
+<span>{% trans '쟁점 토론' %}</span>
+</a>
+<a href="{% url 'review' run.pk %}?page=proposal" {% if phase == 'proposal' %}aria-current="page"{% endif %}>
+<b>5</b>
+<span>{% trans '주의 조항' %}</span>
+</a>
+{% else %}
+<span>
+<b>2</b>{% trans '핵심 요약' %}</span>
+<span>
+<b>3</b>{% trans '입장 나누기' %}</span>
+<span>
+<b>4</b>{% trans '쟁점 토론' %}</span>
+<span>
+<b>5</b>{% trans '주의 조항' %}</span>
+{% endif %}
+</nav>

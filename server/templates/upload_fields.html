@@ -1,0 +1,18 @@
+{% load i18n %}<label class="dropzone" for="document">
+<span class="file-icon" aria-hidden="true">↑</span>
+<strong data-file-name>{{ drop_label }}</strong>
+<span>{% trans '또는 눌러서 파일 선택' %}</span>
+<small>{% trans 'PDF · TXT / 최대 10MB' %}</small>
+<input id="document" type="file" name="document" accept=".pdf,.txt">
+</label>
+<details class="text-input" {% if text %}open{% endif %}>
+<summary>{% trans '파일 대신 텍스트 붙여넣기' %} <span>＋</span>
+</summary>
+<label class="sr-only" for="text">{{ text_label }}</label>
+<textarea id="text" name="text" {% if text_placeholder %}placeholder="{{ text_placeholder }}"{% endif %}>{{ text }}</textarea>
+<small>{% trans '80쪽 · 10만 자까지 분석할 수 있어요.' %}</small>
+</details>
+<button class="primary full" data-upload-submit>{{ submit_label }} <span>↗</span>
+</button>
+<p class="form-status" role="status" data-upload-status>
+</p>

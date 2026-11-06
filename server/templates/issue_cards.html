@@ -1,0 +1,25 @@
+{% load i18n %}{% for item in issues.items %}<article class="issue-card">
+<div class="section-heading">
+<span class="issue-number">{{ forloop.counter|stringformat:'02d' }}</span>
+<span class="tag">{% trans item.priority %}</span>
+</div>
+<h3>{{ item.issue }}</h3>
+<p>{{ item.reason }}</p>
+<div class="issue-direction">
+<span>{% trans '입장 차이' %}</span>
+<p>{{ item.contested }}</p>
+</div>
+<details class="source">
+<summary>{% trans '쟁점 유형과 근거' %}</summary>
+<p>{% trans item.signal %}</p>
+<blockquote>{{ item.citation.quote }}<small>{% blocktranslate with page=item.citation.page %}{{ page }}쪽{% endblocktranslate %}</small>
+</blockquote>
+<p>{{ item.question }}</p>
+</details>
+</article>{% empty %}<div class="empty-issues">
+<span>✧</span>
+<p>{% trans '대화가 모이면 쟁점이 정리돼요.' %}</p>
+<small>{% trans '내 입장과 다른 입장이 만나는 부분을 살펴볼게요.' %}</small>
+</div>{% endfor %}
+{% if issues.excluded %}<details class="source">
+<summary>{% trans '쟁점에서 제외한 내용' %}</summary>{% for note in issues.excluded %}<p>{{ note }}</p>{% endfor %}</details>{% endif %}

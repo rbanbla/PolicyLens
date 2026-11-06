@@ -1,32 +1,38 @@
-# PolicyLens
+# PolicyLens v2
 
-사용자가 올린 대학 AI 정책을 모바일에서 확인하고, 학생·교수·학사행정 관점의 쟁점 탐색과 A/잠정 B 토론을 읽는 웹 앱이다. 설문은 웹 앱에서 받지 않고 별도 Google Forms로 진행한다.
+공공정책 문서에서 이해관계자를 추출하고, 역할별 입장과 토론으로 논쟁 지점을 찾아, 내 입장에서 주의할 조항과 역할별 의견서를 만드는 독립 Django 프로젝트다. 부동산, 세금, 청년 정책처럼 주제가 다른 문서를 같은 절차로 다룬다. 실제 모델 API를 사용하며 모의 응답은 테스트에서만 사용한다.
 
-## 실행
+```sh
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+cp .env.example .env
+# .env에 API 키, 제공자, 모델 이름 입력
+.venv/bin/python manage.py migrate
+.venv/bin/python manage.py runserver 127.0.0.1:8001
+```
 
-HCI 작업공간에서 `./policylens/start.sh`를 실행한다. `policylens/` 안에서는 `./start.sh`다. 최초 실행은 Python 3.11, 로컬 PostgreSQL과 가상환경을 준비하고 연구자 계정을 만든다. 접속 주소는 `http://127.0.0.1:8000/`, 종료는 터미널의 Ctrl+C다. DB·계정은 `.pgdata/`, API 설정은 `.env`에 유지된다.
+영어 화면 문구는 `locale/en/LC_MESSAGES/django.po`에 있다. 문구를 고친 뒤 `.venv/bin/python manage.py makemessages -l en --ignore='.venv/*'`로 목록을 갱신하고 `msgfmt -o locale/en/LC_MESSAGES/django.mo locale/en/LC_MESSAGES/django.po`로 컴파일한다.
 
-`.env.example`을 참고해 `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `POLICYLENS_API_MODE`, `POLICYLENS_SUMMARY_MODEL`, `POLICYLENS_DEBATE_MODEL`을 설정한다. 키는 서버에서만 읽고 브라우저로 전달하지 않는다. 현재 연결 검증은 사용자 지정 Chat Completions 호환 엔드포인트와 `gpt-5.6-luna` 식별자로 수행했다. 상세 설정과 한계는 [데이터·호출 명세](docs/specs/DATA_CONNECTION.md)에 있다.
+## 사용 흐름
 
-## 사용자 흐름
+화면은 문서 넣기 → 핵심 요약·입장 선택 → 입장 나누기 → 쟁점 토론 → 주의 조항의 다섯 페이지다. 역할 수 N은 문서마다 2~3명이며 모델 호출은 분석 1회와 검토 `2N + 2`회로, 3명이면 9회, 2명이면 7회다. 서버 자료를 쓰면 역할과 최종 단계에 검색 호출이 더해져 3명 기준 13~16회가 된다. 실제 API 호출은 비용이 발생한다.
 
-정책 PDF·DOCX·UTF-8 TXT를 올리거나 원문을 붙여 넣으면 문서의 주요 내용이 자동으로 표시된다. 요약 아래의 **쟁점 찾기**를 누르면 확인된 쟁점이 먼저 표시되고, 각 카드에서 원문, 수정 방향, A/잠정 B 비교와 토론을 읽을 수 있다. 텍스트 PDF 최대 80쪽, 파일 최대 10MB·추출 본문 10만 자를 지원한다. OCR은 아직 없다.
+입장을 선택하면 3페이지의 독립 입장과 쟁점 정리가 자동 진행된다. 페이지를 넘기는 버튼을 누르면 4페이지의 쟁점 토론, 5페이지의 주의 조항 정리가 이어진다. 오류가 나면 멈추고 재시작 버튼으로 저장된 단계부터 이어간다. 세션 소유자만 검토에 접근한다.
 
-연구자 화면은 `/research/`, 자료 카탈로그는 `/sources/`, Django 관리 화면은 `/admin/`이다. 업로드 문서는 세션별로 보관하고 공개 정책 목록에 자동 게시하지 않는다. 토론은 단계별로 저장하며 실패한 단계는 명시적으로 재시도한다.
+5페이지는 수정 문구가 아니라 내 입장의 주의 조항, 확인할 것, 담당 기관에 물어볼 질문, 불확실한 부분을 보여준다. 역할별 의견서는 토론 결과를 서버가 조립하며 추가 호출이 없고 텍스트 파일로 내려받는다. 실제 제출은 사용자가 직접 한다.
 
-## 폴더와 데이터
+## 비교 평가
 
-- [문서 지도](docs/README.md): 모든 문서의 위치와 성격
-- [작업환경 구조](docs/PROJECT_STRUCTURE.md): 서버 레이어, 데이터와 스크립트의 위치, 갱신 명령
-- `data/b/`: 로컬 역할별 원본·사용자 엑셀 후보와 출처 교차 검토 자료. 배포 저장소에는 포함하지 않으며 선별된 DB 근거만 초기 데이터로 옮긴다.
-- [쟁점 발견 계약](docs/specs/ISSUE_DISCOVERY.md) · [토론 프로토콜](docs/specs/DEBATE_PROTOCOL.md) · [단계별 체크리스트](docs/ROADMAP.md)
+5페이지의 **두 결과 비교하기**에서 **비교 결과 만들기**를 누르면 같은 문서와 입장으로 단일 프롬프트 답변을 만든다(호출 1회 추가). 두 결과를 A·B로 나란히 보고 평가를 저장하면 어느 쪽이 어떤 방식인지 공개된다. 평가 결과는 `.venv/bin/python manage.py dumpdata server.reviewrun --indent 2`로 내보낸다. 이 출력에는 문서 원문이 포함된다.
 
-현재 잠정 B에는 학생 인터뷰 발화 309개, 교육자 설문 집계 8개, 대학 지침의 행정 대체 근거 2,689개가 있다. 새로 수집한 엑셀 91행은 출처 검토 후보로 등록했다. 역할 적합성을 검증하기 전까지 토론 Evidence에 자동 편입하지 않는다.
+현재 입력은 PDF·TXT·붙여넣기를 지원한다. 실행 중 외부 호출은 동기식이며 개발용 SQLite 트랜잭션 안에서 진행한다.
 
-시연은 [데모 안내](docs/ops/DEMO.md)를 참고한다. 첫 화면의 **예시 결과 보기**는 `/demo/`에 저장된 모의 정책 검토 결과를 연다.
+## 서버 자료
 
-다른 기기에서 업로드·요약·토론까지 시연하는 무료 임시 경로는 [로컬 서버 + 외부 HTTPS 데모](docs/ops/LOCAL_ONLINE_DEMO.md)와 `./demo-online.sh`에 있다. 유료 상시 서버 대안은 [Render 배포 설계](docs/ops/DEPLOYMENT.md)에 준비했으며 서비스 생성은 하지 않았다.
+역할 에이전트, 토론, 최종 정리는 입력 문서 밖의 공개 자료를 서버에서 찾아 근거로 쓴다. `data/reviewed/documents.jsonl`과 `data/processed/`를 준비한 뒤 `.venv/bin/python manage.py load_sources`로 적재한다. 검수를 통과한 문서만 올라가고, 적재된 자료가 없으면 문서만 읽는다.
 
-## 검증
+## 평가
 
-`PGHOST` 등 로컬 PostgreSQL 설정에서 `.venv/bin/python manage.py test server`를 실행한다. 현재 31개 테스트가 통과하며, A/B 입력 분리, 원문·근거 참조, 세션 격리, 재시도, 자료 후보 중복 적재를 검사한다. 이전 실제 모델 호출 결과는 [실행 검증 기록](validation/LIVE_VALIDATION.md)에 남아 있다.
+`.venv/bin/python manage.py evaluate <doc_id>`는 문서 하나를 서비스와 같은 파이프라인으로 실행해 `data/reviewed/runs/`에 저장한다. 문서 발행일 이전의 정책 자료만 보며, `--no-sources`를 붙이면 서버 자료 없이 실행한다. `.venv/bin/python manage.py score`는 저장된 결과가 정답 초안의 쟁점을 언급하는지 키워드로 세며 사람 채점을 대신하지 않는다.
+
+제품 계약은 docs/PRODUCT_PLAN.md, 작업 규칙은 AGENTS.md, 화면 규칙은 docs/DESIGN.md, 검증 기록은 docs/IMPLEMENTATION_STATUS.md, 데이터 수집과 평가는 docs/DATA_PLAN.md를 따른다. `.venv/bin/python manage.py test server`로 회귀 검증을 실행한다.

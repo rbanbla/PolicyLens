@@ -1,20 +1,28 @@
-{% load static %}<!doctype html>
-<html lang="ko">
+{% load static i18n %}{% get_current_language as LANGUAGE_CODE %}
+<!doctype html>
+<html lang="{{ LANGUAGE_CODE }}">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="theme-color" content="#f6f7f3">
-  <title>PolicyLens · 대학 AI 정책 검토</title>
-  <link rel="stylesheet" href="{% static 'lens.css' %}?v=20261105-8">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{% trans 'PolicyLens · 내 입장에서 읽는 정책' %}</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="{% static 'app.css' %}">
 </head>
 <body>
-  <header>
-    <a class="brand" href="/"><i aria-hidden="true"></i>PolicyLens</a>
-    <nav aria-label="주 메뉴">
-      <a class="research" href="{% url 'catalogue' %}">전체 정책</a>
-    </nav>
-  </header>
-  <main>{% block content %}{% endblock %}</main>
-  <footer><span>POLICYLENS</span><a class="research" href="{% url 'intake' %}">연구자 공간 ↗</a></footer>
+<header class="topbar">
+<a href="{% url 'home' %}" class="brand">
+<span class="brand-icon" aria-hidden="true">p<span>l</span>
+</span>PolicyLens<span class="brand-caption">{% trans '내 입장에서 읽는 정책' %}</span>
+</a>
+<div class="topbar-end">
+<span class="header-note">
+<i>
+</i> <span>{% trans '서로 다른 입장, 더 선명한 정책' %}</span></span>
+{% block lang_switch %}{% endblock %}
+</div>
+</header>
+<main class="workspace">{% block content %}{% endblock %}</main>
+<script src="{% static 'interface.js' %}" defer>
+</script>
 </body>
 </html>

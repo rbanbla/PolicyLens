@@ -1,0 +1,897 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-11-06 06:41-0600\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: en\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: server/agents/progress.py:8
+msgid "입장 살펴보기"
+msgstr "Reading each position"
+
+#: server/agents/progress.py:8
+msgid "쟁점 정리"
+msgstr "Sorting the issues"
+
+#: server/agents/progress.py:8 server/templates/journey.html:17
+#: server/templates/journey.html:29 server/templates/review.html:37
+msgid "쟁점 토론"
+msgstr "Issue debate"
+
+#: server/agents/progress.py:8
+msgid "주의 조항 정리"
+msgstr "Compiling clauses to watch"
+
+#: server/agents/progress.py:61
+#, python-format
+msgid ""
+"참고 자료: %(title)s (%(version)s, %(page)s쪽) %(finding)s \"%(quote)s\""
+msgstr ""
+"Reference: %(title)s (%(version)s, p. %(page)s) %(finding)s \"%(quote)s\""
+
+#: server/agents/progress.py:76
+#, python-format
+msgid "정책 의견서: %(title)s"
+msgstr "Policy opinion letter: %(title)s"
+
+#: server/agents/progress.py:76
+#, python-format
+msgid "작성 입장: %(name)s"
+msgstr "Written from the position of: %(name)s"
+
+#: server/agents/progress.py:77
+msgid ""
+"AI가 문서를 바탕으로 작성한 역할 검토 초안이며 실제 당사자의 의견이 아닙니"
+"다. 제출 전 확인하고 수정하세요. 쪽 번호는 파일의 쪽 순서입니다."
+msgstr ""
+"This is a draft role review the AI wrote from the document. It is not the "
+"opinion of an actual party. Check and edit it before you submit it. Page "
+"numbers follow the order of pages in the file."
+
+#: server/agents/progress.py:81
+#, python-format
+msgid "입장: %(text)s"
+msgstr "Position: %(text)s"
+
+#: server/agents/progress.py:81
+#, python-format
+msgid "의견: %(text)s"
+msgstr "Opinion: %(text)s"
+
+#: server/agents/progress.py:82
+#, python-format
+msgid "요청: %(text)s"
+msgstr "Request: %(text)s"
+
+#: server/agents/progress.py:82
+#, python-format
+msgid "근거(%(page)s쪽): %(quote)s"
+msgstr "Basis (p. %(page)s): %(quote)s"
+
+#: server/agents/progress.py:100
+#, python-format
+msgid "원문(%(page)s쪽): %(quote)s"
+msgstr "Source text (p. %(page)s): %(quote)s"
+
+#: server/agents/progress.py:101
+#, python-format
+msgid "영향: %(text)s"
+msgstr "Impact: %(text)s"
+
+#: server/agents/progress.py:101
+#, python-format
+msgid "다른 입장: %(text)s"
+msgstr "Other positions: %(text)s"
+
+#: server/agents/progress.py:102
+#, python-format
+msgid "확인할 것: %(text)s"
+msgstr "What to check: %(text)s"
+
+#: server/agents/progress.py:102
+#, python-format
+msgid "물어볼 질문: %(text)s"
+msgstr "Question to ask: %(text)s"
+
+#: server/agents/progress.py:103
+#, python-format
+msgid "불확실한 부분: %(text)s"
+msgstr "Uncertainty: %(text)s"
+
+#: server/agents/runner.py:20
+msgid "정책 검토"
+msgstr "Policy review"
+
+#: server/agents/runner.py:27
+msgid "모델 API 키와 모델 이름을 .env에 설정하세요."
+msgstr "Set the model API key and model name in .env."
+
+#: server/agents/runner.py:29
+msgid "모델 제공자 설정이 변경되었습니다. 새 검토를 시작하세요."
+msgstr "The model provider setting has changed. Start a new review."
+
+#: server/agents/runner.py:34
+msgid "모델 응답이 완료되지 않았습니다. 다시 시도하세요."
+msgstr "The model response was not completed. Try again."
+
+#: server/agents/runner.py:89
+msgid "이해가 다른 역할을 둘 이상 찾지 못했습니다. "
+msgstr "Could not find two or more roles with different interests. "
+
+#: server/agents/runner.py:141
+msgid "모델 응답이 비어 있습니다. 다시 시도하세요."
+msgstr "The model response was empty. Try again."
+
+#: server/agents/schemas.py:15
+msgid "이해 충돌"
+msgstr "Conflict of interest"
+
+#: server/agents/schemas.py:15
+msgid "모호성"
+msgstr "Ambiguity"
+
+#: server/agents/schemas.py:15
+msgid "재량 집중"
+msgstr "Concentrated discretion"
+
+#: server/agents/schemas.py:15
+msgid "경계·배제"
+msgstr "Cut-off or exclusion"
+
+#: server/agents/schemas.py:15
+msgid "부담 전가"
+msgstr "Burden shifting"
+
+#: server/agents/schemas.py:15
+msgid "누락"
+msgstr "Omission"
+
+#: server/agents/schemas.py:16
+msgid "높음"
+msgstr "High"
+
+#: server/agents/schemas.py:16
+msgid "중간"
+msgstr "Medium"
+
+#: server/agents/schemas.py:16
+msgid "낮음"
+msgstr "Low"
+
+#: server/agents/schemas.py:25
+msgid "유리"
+msgstr "Favorable"
+
+#: server/agents/schemas.py:25
+msgid "불리"
+msgstr "Unfavorable"
+
+#: server/agents/schemas.py:25
+msgid "불분명"
+msgstr "Unclear"
+
+#: server/agents/schemas.py:27
+msgid "수용"
+msgstr "Accept"
+
+#: server/agents/schemas.py:27
+msgid "제한"
+msgstr "Accept with limits"
+
+#: server/agents/schemas.py:27
+msgid "반박"
+msgstr "Rebut"
+
+#: server/agents/tools/documents.py:11
+msgid "파일은 10MB 이하로 입력하세요."
+msgstr "Upload a file of 10MB or less."
+
+#: server/agents/tools/documents.py:16
+msgid "80쪽 이하 문서를 입력하세요."
+msgstr "Enter a document of 80 pages or fewer."
+
+#: server/agents/tools/documents.py:19
+msgid "PDF를 읽을 수 없습니다. 손상되었거나 암호가 걸렸는지 확인하세요."
+msgstr ""
+"Could not read the PDF. Check whether it is damaged or password-protected."
+
+#: server/agents/tools/documents.py:23
+msgid "PDF 또는 UTF-8 TXT를 입력하세요."
+msgstr "Enter a PDF or a UTF-8 TXT file."
+
+#: server/agents/tools/documents.py:27
+msgid ""
+"추출 가능한 본문을 10만 자 이내로 입력하세요. 이미지 PDF는 텍스트 변환이 필요"
+"합니다."
+msgstr ""
+"Enter between 1 and 100,000 characters of extractable text. Image-only PDFs "
+"need text conversion."
+
+#: server/agents/tools/documents.py:49
+msgid "인용 페이지 또는 내용이 잘못되었습니다."
+msgstr "The citation page or content is invalid."
+
+#: server/agents/tools/documents.py:51
+#, python-format
+msgid "인용은 %(n)s자 이상의 원문 구간이어야 합니다."
+msgstr ""
+"A citation must be a stretch of the original text of at least %(n)s "
+"characters."
+
+#: server/agents/tools/documents.py:54
+#, python-format
+msgid "모델이 제시한 인용이 원문과 일치하지 않습니다: %(page)s쪽 \"%(quote)s\""
+msgstr ""
+"The citation the model gave does not match the original: p. %(page)s "
+"\"%(quote)s\""
+
+#: server/agents/tools/sources.py:124
+#, python-format
+msgid "도구로 읽지 않은 서버 자료는 인용할 수 없습니다: %(id)s %(page)s쪽"
+msgstr ""
+"A server source that was not read with the tool cannot be cited: %(id)s p. "
+"%(page)s"
+
+#: server/agents/tools/sources.py:128
+#, python-format
+msgid "서버 자료 %(id)s %(page)s쪽 인용 오류. %(reason)s"
+msgstr "Server source %(id)s p. %(page)s citation error. %(reason)s"
+
+#: server/agents/validation.py:10
+msgid "응답 필드의 자료형이 잘못되었습니다."
+msgstr "A response field has the wrong type."
+
+#: server/agents/validation.py:12
+msgid "응답의 상태 값이 허용된 범위를 벗어났습니다."
+msgstr "A response value is outside the allowed range."
+
+#: server/agents/validation.py:15
+msgid "응답의 필수 필드 또는 허용 필드를 확인하세요."
+msgstr "Check the required and allowed fields in the response."
+
+#: server/agents/validation.py:22
+msgid "응답에 빈 필드가 있습니다. 해당 사항이 없으면 그 이유를 적어 주세요."
+msgstr ""
+"The response has an empty field. If it does not apply, write the reason."
+
+#: server/agents/validation.py:36
+msgid "이해가 서로 다른 역할을 2~3명 반환해야 합니다."
+msgstr "Return 2 to 3 roles with different interests."
+
+#: server/agents/validation.py:39
+msgid "역할 이름은 100자, 설명은 2000자 이내로 작성하세요."
+msgstr "Keep role names within 100 characters and descriptions within 2000."
+
+#: server/agents/validation.py:46
+msgid "이 단계에는 항목이 하나 이상 필요합니다."
+msgstr "This step needs at least one item."
+
+#: server/agents/validation.py:48
+msgid "한 차례에는 항목을 하나만 작성하세요."
+msgstr "Write only one item per turn."
+
+#: server/agents/validation.py:50
+#, python-format
+msgid "쟁점은 최대 %(n)s개까지 고르세요."
+msgstr "Choose at most %(n)s issues."
+
+#: server/agents/validation.py:54
+msgid "현재 단계에서 참조할 수 없는 발언 ID가 있습니다."
+msgstr "Some statement IDs cannot be referenced at this step."
+
+#: server/agents/validation.py:56
+msgid "검토한 이전 발언 ID를 연결하세요."
+msgstr "Link the IDs of the earlier statements you reviewed."
+
+#: server/agents/validation.py:59
+msgid "배정된 쟁점과 상대 주장 모두에 답해야 합니다: "
+msgstr "You must answer every assigned issue and opposing claim: "
+
+#: server/integrations/transport.py:75
+msgid "모델 응답이 비어 있습니다."
+msgstr "The model response was empty."
+
+#: server/models.py:26
+msgid "정책"
+msgstr "policy"
+
+#: server/models.py:26
+msgid "의견"
+msgstr "opinion"
+
+#: server/templates/base.html:7
+msgid "PolicyLens · 내 입장에서 읽는 정책"
+msgstr "PolicyLens · Policy from your point of view"
+
+#: server/templates/base.html:15
+msgid "내 입장에서 읽는 정책"
+msgstr "Policy from your point of view"
+
+#: server/templates/base.html:20
+msgid "서로 다른 입장, 더 선명한 정책"
+msgstr "Different positions, clearer policy"
+
+#: server/templates/compare.html:6
+msgid "어느 결과가 더 도움이 되나요?"
+msgstr "Which result is more helpful?"
+
+#: server/templates/compare.html:7
+msgid ""
+"같은 문서와 같은 입장으로 만든 두 결과예요. 평가를 저장하면 어느 쪽이 어떤 방"
+"식인지 알려드려요."
+msgstr ""
+"These are two results made from the same document and the same position. "
+"Save your rating and we will tell you which side used which method."
+
+#: server/templates/compare.html:12
+msgid "비교용 답변을 만들려면 모델을 한 번 더 호출해요."
+msgstr "Making the comparison answer calls the model one more time."
+
+#: server/templates/compare.html:13
+msgid "비교 결과 만들기"
+msgstr "Create comparison"
+
+#: server/templates/compare.html:16 server/templates/compare.html:17
+#, python-format
+msgid "결과 %(label)s"
+msgstr "Result %(label)s"
+
+#: server/templates/compare.html:21
+#, python-format
+msgid "내 평가: %(preferred)s"
+msgstr "My rating: %(preferred)s"
+
+#: server/templates/compare.html:26
+msgid "더 도움이 된 결과"
+msgstr "The more helpful result"
+
+#: server/templates/compare.html:27
+msgid "결과 A"
+msgstr "Result A"
+
+#: server/templates/compare.html:28
+msgid "결과 B"
+msgstr "Result B"
+
+#: server/templates/compare.html:29
+msgid "비슷함"
+msgstr "About the same"
+
+#: server/templates/compare.html:31
+msgid "이유나 한쪽에만 있던 조항"
+msgstr "Reason, or a clause only one side had"
+
+#: server/templates/compare.html:31 server/templates/upload_fields.html:8
+msgid "선택"
+msgstr "Optional"
+
+#: server/templates/compare.html:34
+msgid "평가 저장"
+msgstr "Save rating"
+
+#: server/templates/compare.html:37
+msgid "주의 조항으로 돌아가기"
+msgstr "Back to the clauses to watch"
+
+#: server/templates/home.html:11
+msgid "어려운 정책도,<br><span class=\"text-accent\">내 입장에서.</span>"
+msgstr ""
+"Even hard policy,<br><span class=\"text-accent\">from where you stand.</span>"
+
+#: server/templates/home.html:12
+msgid ""
+"누구에게 유리하고, 내게는 어떤 의미일까요?<br>문서를 넣으면 서로 다른 입장에"
+"서 살펴봐요."
+msgstr ""
+"Who does it favor, and what does it mean for me?<br>Add a document and we "
+"will read it from different positions."
+
+#: server/templates/home.html:15
+msgid "핵심만 이해하고"
+msgstr "Grasp the essentials"
+
+#: server/templates/home.html:17
+msgid "내 입장을 선택하면"
+msgstr "Pick your position"
+
+#: server/templates/home.html:19
+msgid "주의할 조항이 보여요"
+msgstr "See the clauses to watch"
+
+#: server/templates/home.html:23
+msgid "부동산 · 세금 · 청년 정책 등"
+msgstr "Housing · tax · youth policy, and more"
+
+#: server/templates/home.html:24
+msgid "궁금한 정책 문서로 시작하세요."
+msgstr "Start with any policy document you are curious about."
+
+#: server/templates/home.html:28
+msgid "문서 파일을 선택하거나 본문을 붙여넣어 주세요."
+msgstr "Choose a document file or paste the text."
+
+#: server/templates/home.html:28
+msgid "문서의 핵심을 살펴보고 있어요…"
+msgstr "Reading the key points of your document…"
+
+#: server/templates/home.html:28
+msgid "문서 분량에 따라 잠시 걸릴 수 있어요."
+msgstr "This can take a moment, depending on the length."
+
+#: server/templates/home.html:32
+msgid "첫 번째 단계"
+msgstr "Step one"
+
+#: server/templates/home.html:34
+msgid "어떤 문서를 살펴볼까요?"
+msgstr "Which document shall we look at?"
+
+#: server/templates/home.html:36
+msgid "문서를 여기에 놓아주세요"
+msgstr "Drop your document here"
+
+#: server/templates/home.html:36
+msgid "문서 본문"
+msgstr "Document text"
+
+#: server/templates/home.html:36
+msgid "검토할 문서의 전체 내용을 붙여넣으세요."
+msgstr "Paste the full text of the document to review."
+
+#: server/templates/home.html:36
+msgid "내 문서 살펴보기"
+msgstr "Review my document"
+
+#: server/templates/home.html:38
+msgid "원문을 바탕으로 검토하고, 판단의 근거를 함께 보여드려요."
+msgstr ""
+"We review from the original text and show the evidence for each judgment."
+
+#: server/templates/issue_cards.html:9 server/templates/review_steps.html:58
+msgid "입장 차이"
+msgstr "Difference in positions"
+
+#: server/templates/issue_cards.html:13
+msgid "쟁점 유형과 근거"
+msgstr "Issue type and basis"
+
+#: server/templates/issue_cards.html:15 server/templates/review_steps.html:15
+#: server/templates/review_steps.html:63 server/templates/summary.html:37
+#, python-format
+msgid "%(page)s쪽"
+msgstr "p. %(page)s"
+
+#: server/templates/issue_cards.html:21
+msgid "대화가 모이면 쟁점이 정리돼요."
+msgstr "Issues appear once the conversation gathers."
+
+#: server/templates/issue_cards.html:22
+msgid "내 입장과 다른 입장이 만나는 부분을 살펴볼게요."
+msgstr "We will look at where your position meets the others."
+
+#: server/templates/issue_cards.html:25
+msgid "쟁점에서 제외한 내용"
+msgstr "Left out of the issues"
+
+#: server/templates/journey.html:1
+msgid "검토 과정"
+msgstr "Review steps"
+
+#: server/templates/journey.html:4
+msgid "문서 넣기"
+msgstr "Add document"
+
+#: server/templates/journey.html:9 server/templates/journey.html:25
+msgid "핵심 요약"
+msgstr "Key summary"
+
+#: server/templates/journey.html:13 server/templates/journey.html:27
+#: server/templates/review.html:37
+msgid "입장 나누기"
+msgstr "Share positions"
+
+#: server/templates/journey.html:21 server/templates/journey.html:31
+#: server/templates/review.html:67
+msgid "주의 조항"
+msgstr "Clauses to watch"
+
+#: server/templates/review.html:7
+msgid "문서를 다시 살펴볼게요."
+msgstr "Let us look at the document again."
+
+#: server/templates/review.html:9
+msgid "문서 분석 재시도"
+msgstr "Retry document analysis"
+
+#: server/templates/review.html:16
+msgid "같은 문서, 서로 다른 입장."
+msgstr "Same document, different positions."
+
+#: server/templates/review.html:16
+msgid "이 쟁점, 입장마다 어떻게 다를까요?"
+msgstr "How does each position see this issue?"
+
+#: server/templates/review.html:16
+msgid "내가 주의할 조항."
+msgstr "Clauses I should watch."
+
+#: server/templates/review.html:17
+msgid "내 입장과 부딪히는 부분을 대화에서 발견해 보세요."
+msgstr "Find where your position clashes in the conversation."
+
+#: server/templates/review.html:17
+msgid "쟁점마다 서로의 주장에 답하며 차이를 드러내요."
+msgstr ""
+"On each issue they answer each other's claims, which brings out the "
+"differences."
+
+#: server/templates/review.html:17
+msgid "무엇을 조심하고 무엇을 확인할지 정리했어요."
+msgstr "We sorted out what to be careful about and what to check."
+
+#: server/templates/review.html:21
+msgid "지금 살펴보는 문서"
+msgstr "Document under review"
+
+#: server/templates/review.html:24 server/templates/summary.html:9
+#, python-format
+msgid "%(counter)s쪽"
+msgid_plural "%(counter)s쪽"
+msgstr[0] "%(counter)s page"
+msgstr[1] "%(counter)s pages"
+
+#: server/templates/review.html:25
+msgid "핵심 요약 보기"
+msgstr "View key summary"
+
+#: server/templates/review.html:27
+msgid "대화에 참여하는 입장"
+msgstr "Positions in the conversation"
+
+#: server/templates/review.html:29
+msgid "나"
+msgstr "Me"
+
+#: server/templates/review.html:29
+msgid "AI가 각 역할의 관점을 검토합니다.<br>원문 근거도 함께 확인해 주세요."
+msgstr ""
+"The AI reviews each role's perspective.<br>Please check the evidence from "
+"the original text too."
+
+#: server/templates/review.html:38
+#, python-format
+msgid "AI · %(counter)s개의 관점"
+msgid_plural "AI · %(counter)s개의 관점"
+msgstr[0] "AI · %(counter)s perspective"
+msgstr[1] "AI · %(counter)s perspectives"
+
+#: server/templates/review.html:46
+msgid "서로의 입장이 만나면<br>문서가 더 선명해져요."
+msgstr "When positions meet,<br>the document gets clearer."
+
+#: server/templates/review.html:53
+msgid "입장을 작성 중"
+msgstr "Writing a position"
+
+#: server/templates/review.html:66
+#, python-format
+msgid "%(selected)s의 입장"
+msgstr "Position of %(selected)s"
+
+#: server/templates/review.html:71
+#, python-format
+msgid "에이전트가 서버 자료를 찾아본 기록 %(total)s건"
+msgstr "Agent lookups in server sources: %(total)s"
+
+#: server/templates/review.html:72
+#, python-format
+msgid "%(label)s: %(input)s (%(found)s건)"
+msgstr "%(label)s: %(input)s (%(found)s found)"
+
+#: server/templates/review.html:83
+msgid "토론 내용을 주의 조항으로 정리하고 있어요."
+msgstr "Turning the debate into clauses to watch."
+
+#: server/templates/review.html:86 server/templates/review.html:88
+msgid "이 단계의 검토가 끝났어요."
+msgstr "This step's review is done."
+
+#: server/templates/review.html:86
+msgid "앞선 검토가 끝나면 이어서 살펴볼 수 있어요."
+msgstr "Once the earlier review is done, you can continue."
+
+#: server/templates/review.html:86
+msgid "준비되면 이어서 살펴볼게요."
+msgstr "We will continue when you are ready."
+
+#: server/templates/review.html:88
+#, python-brace-format
+msgid "{name}의 입장을 살펴보고 있어요."
+msgstr "Reading the position of {name}."
+
+#: server/templates/review.html:88
+msgid "연결 상태를 확인한 후 다시 이어서 살펴봐 주세요."
+msgstr "Check your connection and continue again."
+
+#: server/templates/review.html:88
+msgid "잠시 멈췄어요. 다시 이어서 살펴볼 수 있어요."
+msgstr "Paused for a moment. You can continue again."
+
+#: server/templates/review.html:88
+msgid "연결이 잠시 끊겼어요. 다시 시작하면 저장된 입장부터 이어집니다."
+msgstr ""
+"The connection dropped for a moment. Restarting resumes from the saved "
+"positions."
+
+#: server/templates/review.html:88
+msgid "잠시 멈췄어요. 나눈 입장은 저장되어 있어요."
+msgstr "Paused for a moment. The positions shared so far are saved."
+
+#: server/templates/review.html:88 server/templates/review.html:89
+msgid "이어서 다시 살펴보기"
+msgstr "Continue reviewing again"
+
+#: server/templates/review.html:89
+msgid "검토 이어가기"
+msgstr "Continue review"
+
+#: server/templates/review.html:91
+msgid "앞선 검토로 돌아가기"
+msgstr "Back to the earlier review"
+
+#: server/templates/review.html:93
+msgid "버튼을 누를 때마다 한 입장씩 확인할 수 있어요."
+msgstr "Each button press reveals one position."
+
+#: server/templates/review.html:100
+msgid "대화에서 찾은 쟁점"
+msgstr "Issues found in the conversation"
+
+#: server/templates/review.html:102
+msgid "토론할 쟁점"
+msgstr "Issues to debate"
+
+#: server/templates/review.html:106
+msgid "쟁점마다 서로의 입장을 맞대어 봐요."
+msgstr "We set the positions side by side on each issue."
+
+#: server/templates/review.html:107
+msgid "쟁점 토론 보기"
+msgstr "View issue debate"
+
+#: server/templates/review.html:108
+msgid "토론 내용을 내 입장에서 정리해요."
+msgstr "We sort the debate from your position."
+
+#: server/templates/review.html:109
+msgid "주의 조항 보기"
+msgstr "View clauses to watch"
+
+#: server/templates/review.html:110
+msgid ""
+"AI가 정리한 내용이고, 쪽 번호는 파일의 쪽 순서라 문서에 인쇄된 번호와 다를 "
+"수 있어요. 법률·세무 자문이 아니니 공식 기관에서 확인하세요."
+msgstr ""
+"The AI compiled this. Page numbers follow the order of pages in the file, so "
+"they may differ from the numbers printed in the document. This is not legal "
+"or tax advice, so check with an official agency."
+
+#: server/templates/review.html:111
+msgid "새 문서 살펴보기"
+msgstr "Review a new document"
+
+#: server/templates/review.html:114
+msgid "단일 프롬프트 답변과 비교해 평가할 수 있어요."
+msgstr "You can rate this against a single-prompt answer."
+
+#: server/templates/review.html:115
+msgid "두 결과 비교하기"
+msgstr "Compare the two results"
+
+#: server/templates/review.html:118
+#, python-format
+msgid "%(name)s의 의견서"
+msgstr "Opinion letter from %(name)s"
+
+#: server/templates/review.html:120
+msgid "텍스트 파일로 내려받기"
+msgstr "Download as a text file"
+
+#: server/templates/review_steps.html:6
+#, python-format
+msgid "주의 %(priority)s · %(signal)s"
+msgstr "Caution: %(priority)s · %(signal)s"
+
+#: server/templates/review_steps.html:7
+#, python-format
+msgid "주의 조항 %(number)s"
+msgstr "Clause to watch %(number)s"
+
+#: server/templates/review_steps.html:13
+msgid "문서에 없는 내용 · 관련 조항"
+msgstr "Missing from the document · related clause"
+
+#: server/templates/review_steps.html:13
+msgid "해당 조항"
+msgstr "Relevant clause"
+
+#: server/templates/review_steps.html:18 server/templates/summary.html:44
+msgid "내게 미치는 영향"
+msgstr "How it affects me"
+
+#: server/templates/review_steps.html:23
+msgid "내가 확인할 것"
+msgstr "What I should check"
+
+#: server/templates/review_steps.html:25
+msgid "담당 기관에 물어볼 질문"
+msgstr "Question for the agency"
+
+#: server/templates/review_steps.html:28
+msgid "다른 자료에서 확인한 내용"
+msgstr "Confirmed in other sources"
+
+#: server/templates/review_steps.html:30
+#, python-format
+msgid "%(title)s · %(version)s · %(page)s쪽 · %(kind)s 자료"
+msgstr "%(title)s · %(version)s · p. %(page)s · %(kind)s source"
+
+#: server/templates/review_steps.html:31
+msgid "원문 보기"
+msgstr "View original"
+
+#: server/templates/review_steps.html:34
+msgid "다른 입장과 불확실한 부분"
+msgstr "Other positions and uncertainty"
+
+#: server/templates/review_steps.html:36
+msgid "불확실한 부분"
+msgstr "Uncertainty"
+
+#: server/templates/review_steps.html:41
+msgid "내 입장"
+msgstr "My position"
+
+#: server/templates/review_steps.html:47
+msgid "입장과 근거 보기"
+msgstr "View position and evidence"
+
+#: server/templates/review_steps.html:50
+msgid "쟁점 유형"
+msgstr "Issue type"
+
+#: server/templates/review_steps.html:52
+msgid "이 역할에게"
+msgstr "For this role"
+
+#: server/templates/review_steps.html:54
+msgid "상대 주장"
+msgstr "Opposing claim"
+
+#: server/templates/review_steps.html:56
+msgid "반응"
+msgstr "Response"
+
+#: server/templates/review_steps.html:60
+msgid "요청"
+msgstr "Request"
+
+#: server/templates/review_steps.html:62
+msgid "입장을 바꿀 조건"
+msgstr "Condition to change position"
+
+#: server/templates/review_steps.html:70
+msgid "연결된 입장"
+msgstr "Linked position"
+
+#: server/templates/summary.html:3
+msgid "먼저, 핵심부터."
+msgstr "Start with the essentials."
+
+#: server/templates/summary.html:4
+msgid "문서가 말하는 것과 내게 중요한 것을 함께 살펴봐요."
+msgstr "See what the document says and what matters to you."
+
+#: server/templates/summary.html:14
+msgid "문서 원문 보기"
+msgstr "View original text"
+
+#: server/templates/summary.html:14
+#, python-format
+msgid "%(number)s쪽"
+msgstr "Page %(number)s"
+
+#: server/templates/summary.html:20
+msgid "어떤 입장이 나와 가까운가요?"
+msgstr "Which position is closest to yours?"
+
+#: server/templates/summary.html:22
+msgid "문서에서 찾은 이해관계자"
+msgstr "Stakeholders found in the document"
+
+#: server/templates/summary.html:32
+msgid "이 역할이 내 입장입니다"
+msgstr "This role is my position"
+
+#: server/templates/summary.html:34
+msgid "문서에 직접 언급되지 않은 역할이에요."
+msgstr "The document does not mention this role directly."
+
+#: server/templates/summary.html:52
+msgid "함께 영향을 받는 사람들"
+msgstr "Others also affected"
+
+#: server/templates/summary.html:53
+msgid "입장 나누기 보기"
+msgstr "View shared positions"
+
+#: server/templates/summary.html:54
+msgid "선택한 입장에서 주의할 조항을 알려드려요."
+msgstr "We will show you the clauses to watch from your chosen position."
+
+#: server/templates/summary.html:55
+msgid "이 입장에서 살펴보기"
+msgstr "Review from this position"
+
+#: server/templates/upload_fields.html:4
+msgid "또는 눌러서 파일 선택"
+msgstr "or click to choose a file"
+
+#: server/templates/upload_fields.html:5
+msgid "PDF · TXT / 최대 10MB"
+msgstr "PDF · TXT / up to 10MB"
+
+#: server/templates/upload_fields.html:12
+msgid "파일 대신 텍스트 붙여넣기"
+msgstr "Paste text instead of a file"
+
+#: server/templates/upload_fields.html:16
+msgid "80쪽 · 10만 자까지 분석할 수 있어요."
+msgstr "Up to 80 pages · 100,000 characters can be analyzed."
+
+#: server/views.py:20
+msgid "다른 요청에서 단계가 진행되었습니다. 저장된 상태에서 다시 시작하세요."
+msgstr ""
+"Another request already advanced the step. Restart from the saved state."
+
+#: server/views.py:91
+msgid "자신의 입장을 선택해 주세요."
+msgstr "Please choose your position."
+
+#: server/views.py:129
+msgid "먼저 자신의 입장을 선택하세요."
+msgstr "Choose your position first."
+
+#: server/views.py:144
+msgid "서버가 다른 작업을 저장 중입니다. 잠시 후 다시 시작하세요."
+msgstr "The server is saving another job. Try again in a moment."
+
+#: server/views.py:172
+msgid "단일 프롬프트"
+msgstr "Single prompt"
+
+#: server/views.py:200
+msgid "더 도움이 된 결과를 선택해 주세요."
+msgstr "Please choose the more helpful result."
+
+
+msgid "쟁점"
+msgstr "Issue"
+
+msgid "입장"
+msgstr "Position"
+
+msgid "인용을 뺀 문장에는 한자를 쓰지 말고 한글로 다시 쓰세요."
+msgstr "Do not use Chinese characters outside quotes. Write the sentence again."

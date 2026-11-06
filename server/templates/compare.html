@@ -1,0 +1,39 @@
+{% extends 'base.html' %}{% load i18n %}
+{% block content %}
+{% include 'journey.html' %}
+<div class="page-intro compact">
+<span class="eyebrow">A / B COMPARE</span>
+<h1>{% trans '어느 결과가 더 도움이 되나요?' %}</h1>
+<p class="lead">{% trans '같은 문서와 같은 입장으로 만든 두 결과예요. 평가를 저장하면 어느 쪽이 어떤 방식인지 알려드려요.' %}</p>
+</div>
+{% if form_error %}<p class="error" role="alert">{{ form_error }}</p>{% endif %}
+{% if run.error %}<p class="error" role="alert">{{ run.error }}</p>{% endif %}
+{% if not results %}<section class="glass recovery">
+<p>{% trans '비교용 답변을 만들려면 모델을 한 번 더 호출해요.' %}</p>
+<form method="post" action="{% url 'compare_run' run.pk %}">{% csrf_token %}<button class="primary">{% trans '비교 결과 만들기' %}</button>
+</form>
+</section>
+{% else %}<div class="before-after">{% for result in results %}<div role="group" aria-label="{% blocktranslate with label=result.label %}결과 {{ label }}{% endblocktranslate %}">
+<span class="eyebrow">{% blocktranslate with label=result.label %}결과 {{ label }}{% endblocktranslate %}{% if rated %} · {{ result.source }}{% endif %}</span>
+<p class="compare-text" tabindex="0">{{ result.text }}</p>
+</div>{% endfor %}</div>
+{% if rated %}<section class="glass recovery">
+<p>{% trans run.evaluation.preferred as preferred %}{% blocktranslate %}내 평가: {{ preferred }}{% endblocktranslate %}</p>
+{% if run.evaluation.note %}<p class="compare-text">{{ run.evaluation.note }}</p>{% endif %}
+</section>
+{% else %}<form class="glass recovery" method="post" action="{% url 'compare_rate' run.pk %}">{% csrf_token %}
+<fieldset class="compare-choice">
+<legend>{% trans '더 도움이 된 결과' %}</legend>
+<label><input type="radio" name="preferred" value="A" required> {% trans '결과 A' %}</label>
+<label><input type="radio" name="preferred" value="B"> {% trans '결과 B' %}</label>
+<label><input type="radio" name="preferred" value="비슷함"> {% trans '비슷함' %}</label>
+</fieldset>
+<label class="field-label" for="note">{% trans '이유나 한쪽에만 있던 조항' %} <span>{% trans '선택' %}</span>
+</label>
+<textarea id="note" name="note" maxlength="2000"></textarea>
+<button class="primary">{% trans '평가 저장' %}</button>
+</form>{% endif %}{% endif %}
+<div class="page-action">
+<a class="secondary" href="{% url 'review' run.pk %}?page=proposal">{% trans '주의 조항으로 돌아가기' %}</a>
+</div>
+{% endblock %}

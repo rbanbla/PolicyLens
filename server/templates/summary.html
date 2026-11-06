@@ -1,0 +1,41 @@
+{% load i18n %}<div class="page-intro">
+<span class="eyebrow">DOCUMENT BRIEF</span>
+<h1>{% trans '먼저, 핵심부터.' %}</h1>
+<p class="lead">{% trans '문서가 말하는 것과 내게 중요한 것을 함께 살펴봐요.' %}</p>
+</div>
+<section class="glass brief-card">
+<div class="section-heading">
+<span class="tag">{{ run.analysis.document_type }}</span>
+<span class="subtle">{% blocktranslate count counter=run.pages|length %}{{ counter }}쪽{% plural %}{{ counter }}쪽{% endblocktranslate %}</span>
+</div>
+<h2>{{ run.title }}</h2>
+<p>{{ run.analysis.summary }}</p>
+<details class="source">
+<summary>{% trans '문서 원문 보기' %} ↗</summary>{% for page in run.pages %}<h4>{% blocktranslate with number=forloop.counter %}{{ number }}쪽{% endblocktranslate %}</h4>
+<p class="original-text">{{ page }}</p>{% endfor %}</details>
+</section>
+<div class="section-heading role-heading">
+<div>
+<span class="eyebrow">YOUR PERSPECTIVE</span>
+<h2>{% trans '어떤 입장이 나와 가까운가요?' %}</h2>
+</div>
+<span class="subtle">{% trans '문서에서 찾은 이해관계자' %}</span>
+</div>
+<form method="post" action="{% url 'select' run.pk %}">{% csrf_token %}
+<div class="role-grid">{% for role in run.analysis.roles %}<article class="glass role-card role-{{ forloop.counter0 }}">
+<label class="role-choice">
+<input type="radio" name="role" value="{{ forloop.counter0 }}" {% if run.selected_role == forloop.counter0 %}checked{% endif %} {% if selected %}disabled{% else %}required{% endif %}>
+<span class="avatar">{{ role.name|first }}</span>
+<span class="role-title">{{ role.name }}</span>
+<span class="radio-mark">
+</span>
+<span class="sr-only">{% trans '이 역할이 내 입장입니다' %}</span>
+</label>
+<p class="role-impact">{% if role.basis == 'implied' %}{% trans '문서에 직접 언급되지 않은 역할이에요.' %} {% endif %}{{ role.impact }}</p>
+</article>{% endfor %}</div>
+{% if run.analysis.other_stakeholders %}<p class="microcopy">{% trans '함께 영향을 받는 사람들' %} · {{ run.analysis.other_stakeholders|join:', ' }}</p>{% endif %}
+<div class="page-action">{% if selected %}<a class="primary" href="?page=discussion">{% trans '입장 나누기 보기' %} <span>→</span>
+</a>{% else %}<span class="subtle">{% trans '선택한 입장에서 주의할 조항을 알려드려요.' %}</span>
+<button class="primary">{% trans '이 입장에서 살펴보기' %} <span>→</span>
+</button>{% endif %}</div>
+</form>

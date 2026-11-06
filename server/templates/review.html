@@ -1,24 +1,127 @@
-{% extends "base.html" %}{% load static %}{% block content %}
-<section class="workspace narrow document-review">
-  <a class="crumb" href="{% url 'home' %}">← 다른 문서 선택</a>
-  <h1 id="review-title">주요 내용 확인</h1>
-  <p class="document-meta">{{ draft.title }} · {{ draft.document|length }}자</p>
-  <section id="policy-summary" aria-labelledby="review-title" data-url="{% url 'summary' %}" data-document-hash="{{ document_hash }}">
-    <p id="summary-status" role="status">문서의 주요 내용을 정리하고 있습니다…</p>
-    <div id="summary-items"></div>
-    <button type="button" id="summary-retry" class="primary" hidden>요약 다시 시도</button>
-  </section>
-  <form class="review-action" method="post">{% csrf_token %}
-    <button class="primary wide" type="submit">쟁점 찾기 <span aria-hidden="true">→</span></button>
-  </form>
-  <details>
-    <summary>원문 전체 보기</summary>
-    <div class="source-scroll">
-      {% for page in draft.pages %}
-      <section><small>{{ page.label }}</small><div class="source-text">{{ page.text }}</div></section>
-      {% endfor %}
-    </div>
-  </details>
+{% extends 'base.html' %}{% load static i18n %}
+{% block content %}
+{% include 'journey.html' %}
+{% if form_error %}<p class="error" role="alert">{{ form_error }}</p>{% endif %}
+{% if not run.analysis %}<section class="glass recovery">
+<span class="eyebrow">DOCUMENT ANALYSIS</span>
+<h1>{% trans '문서를 다시 살펴볼게요.' %}</h1>
+<p class="error" role="alert">{{ run.error }}</p>
+<form method="post" action="{% url 'retry_analysis' run.pk %}">{% csrf_token %}<button class="primary">{% trans '문서 분석 재시도' %}</button>
+</form>
 </section>
-<script src="{% static 'summary.js' %}?v=20261105-8" defer></script>
+{% elif phase == 'summary' %}{% include 'summary.html' %}
+{% else %}
+<div class="page-intro compact">
+<span class="eyebrow">{% if phase == 'discussion' %}MANY PERSPECTIVES{% elif phase == 'review' %}THE DEBATE{% else %}WATCH THESE CLAUSES{% endif %}</span>
+<h1>{% if phase == 'discussion' %}{% trans '같은 문서, 서로 다른 입장.' %}{% elif phase == 'review' %}{% trans '이 쟁점, 입장마다 어떻게 다를까요?' %}{% else %}{% trans '내가 주의할 조항.' %}{% endif %}</h1>
+<p class="lead">{% if phase == 'discussion' %}{% trans '내 입장과 부딪히는 부분을 대화에서 발견해 보세요.' %}{% elif phase == 'review' %}{% trans '쟁점마다 서로의 주장에 답하며 차이를 드러내요.' %}{% else %}{% trans '무엇을 조심하고 무엇을 확인할지 정리했어요.' %}{% endif %}</p>
+</div>
+<div class="review-layout">
+<aside class="document-sidebar glass">
+<span class="eyebrow">{% trans '지금 살펴보는 문서' %}</span>
+<span class="mini-doc">≡</span>
+<h3>{{ run.title }}</h3>
+<span class="subtle">{{ run.analysis.document_type }} · {% blocktranslate count counter=run.pages|length %}{{ counter }}쪽{% plural %}{{ counter }}쪽{% endblocktranslate %}</span>
+<a class="text-link" href="?page=summary">{% trans '핵심 요약 보기' %} ↗</a>
+<hr>
+<span class="eyebrow">{% trans '대화에 참여하는 입장' %}</span>{% for role in run.analysis.roles %}<div class="participant">
+<span class="avatar role-{{ forloop.counter0 }}">{{ role.name|first }}</span>
+<span>{{ role.name }}</span>{% if run.selected_role == forloop.counter0 %}<span class="self-tag">{% trans '나' %}</span>{% endif %}</div>{% endfor %}<p class="sidebar-note">{% blocktranslate trimmed %}AI가 각 역할의 관점을 검토합니다.<br>원문 근거도 함께 확인해 주세요.{% endblocktranslate %}</p>
+</aside>
+<div>
+{% if phase != 'proposal' %}<section class="chat-room glass">
+<div class="chat-header">
+<div>
+<span class="chat-status-dot">
+</span>
+<strong>{% if phase == 'discussion' %}{% trans '입장 나누기' %}{% else %}{% trans '쟁점 토론' %}{% endif %}</strong>
+<span class="subtle">{% blocktranslate count counter=run.analysis.roles|length %}AI · {{ counter }}개의 관점{% plural %}AI · {{ counter }}개의 관점{% endblocktranslate %}</span>
+</div>
+<span class="chat-symbol" aria-hidden="true">···</span>
+</div>
+<div class="chat-scroll" id="chat-scroll">
+<div id="review-steps" class="chat-flow" role="log" aria-live="polite" aria-relevant="additions">{% include 'review_steps.html' %}</div>
+<div class="chat-welcome" id="chat-welcome" {% if run.steps %}hidden{% endif %}>
+<span class="welcome-symbol">✧</span>
+<p>{% blocktranslate trimmed %}서로의 입장이 만나면<br>문서가 더 선명해져요.{% endblocktranslate %}</p>
+</div>
+<div id="typing-message" class="chat-message typing-message" hidden>
+<span class="avatar" data-typing-avatar>·</span>
+<div>
+<div class="speaker" data-typing-name>
+</div>
+<div class="bubble typing-dots" aria-label="{% trans '입장을 작성 중' %}">
+<i>
+</i>
+<i>
+</i>
+<i>
+</i>
+</div>
+</div>
+</div>
+</div>
+</section>
+{% else %}<div class="final-heading">
+<span class="tag self-tag">{% blocktranslate %}{{ selected }}의 입장{% endblocktranslate %}</span>
+<h2>{% trans '주의 조항' %}</h2>
+</div>
+<div id="review-steps" class="proposal-list">{% include 'review_steps.html' %}</div>
+{% if research %}<details class="source">
+<summary>{% blocktranslate with total=research|length %}에이전트가 서버 자료를 찾아본 기록 {{ total }}건{% endblocktranslate %}</summary>
+{% for entry in research %}<p>{% blocktranslate with label=entry.label input=entry.input found=entry.found %}{{ label }}: {{ input }} ({{ found }}건){% endblocktranslate %}</p>{% endfor %}
+</details>{% endif %}
+<div id="typing-message" class="final-wait" hidden>
+<span class="typing-dots">
+<i>
+</i>
+<i>
+</i>
+<i>
+</i>
+</span>
+<p>{% trans '토론 내용을 주의 조항으로 정리하고 있어요.' %}</p>
+</div>{% endif %}
+<div class="run-controls">
+<p id="review-progress" class="subtle" role="status">{% if phase_done %}{% trans '이 단계의 검토가 끝났어요.' %}{% elif not phase_ready %}{% trans '앞선 검토가 끝나면 이어서 살펴볼 수 있어요.' %}{% else %}{% trans '준비되면 이어서 살펴볼게요.' %}{% endif %}</p>
+<p id="review-error" class="error" role="alert">{{ run.error }}</p>
+{% if not phase_done and phase_ready %}<form id="review-runner" method="post" action="{% url 'step' run.pk %}" data-status-url="{% url 'status' run.pk %}" data-phase="{{ phase }}" data-end="{{ phase_end }}" data-typing="{% trans '{name}의 입장을 살펴보고 있어요.' %}" data-done="{% trans '이 단계의 검토가 끝났어요.' %}" data-unreachable="{% trans '연결 상태를 확인한 후 다시 이어서 살펴봐 주세요.' %}" data-paused="{% trans '잠시 멈췄어요. 다시 이어서 살펴볼 수 있어요.' %}" data-offline="{% trans '연결이 잠시 끊겼어요. 다시 시작하면 저장된 입장부터 이어집니다.' %}" data-saved="{% trans '잠시 멈췄어요. 나눈 입장은 저장되어 있어요.' %}" data-retry="{% trans '이어서 다시 살펴보기' %}">{% csrf_token %}<input type="hidden" name="cursor" value="{{ run.steps|length }}">
+<button class="secondary">{% if run.error %}{% trans '이어서 다시 살펴보기' %}{% else %}{% trans '검토 이어가기' %}{% endif %}</button>
+</form>{% endif %}
+{% if not phase_ready %}<a class="secondary" href="?page={% if phase == 'review' %}discussion{% else %}review{% endif %}">{% trans '앞선 검토로 돌아가기' %}</a>{% endif %}
+<noscript>
+<p>{% trans '버튼을 누를 때마다 한 입장씩 확인할 수 있어요.' %}</p>
+</noscript>
+</div>
+{% if phase == 'discussion' %}<section class="issues-section">
+<div class="section-heading">
+<div>
+<span class="eyebrow">WHAT MATTERS TO YOU</span>
+<h2>{% trans '대화에서 찾은 쟁점' %}</h2>
+</div>
+<span class="subtle">{% trans '토론할 쟁점' %}</span>
+</div>
+<div id="issue-cards" class="issue-grid">{% include 'issue_cards.html' %}</div>
+</section>{% endif %}
+<div class="page-action" id="phase-next" {% if not phase_done %}hidden{% endif %}>{% if phase == 'discussion' %}<span class="subtle">{% trans '쟁점마다 서로의 입장을 맞대어 봐요.' %}</span>
+<a class="primary" href="?page=review&start=1">{% trans '쟁점 토론 보기' %} <span>→</span>
+</a>{% elif phase == 'review' %}<span class="subtle">{% trans '토론 내용을 내 입장에서 정리해요.' %}</span>
+<a class="primary" href="?page=proposal&start=1">{% trans '주의 조항 보기' %} <span>→</span>
+</a>{% else %}<span class="subtle">{% trans 'AI가 정리한 내용이고, 쪽 번호는 파일의 쪽 순서라 문서에 인쇄된 번호와 다를 수 있어요. 법률·세무 자문이 아니니 공식 기관에서 확인하세요.' %}</span>
+<a class="primary" href="{% url 'home' %}">{% trans '새 문서 살펴보기' %} <span>↗</span>
+</a>{% endif %}</div>
+{% if phase == 'proposal' and complete %}<div class="page-action">
+<span class="subtle">{% trans '단일 프롬프트 답변과 비교해 평가할 수 있어요.' %}</span>
+<a class="secondary" href="{% url 'compare' run.pk %}">{% trans '두 결과 비교하기' %}</a>
+</div>{% endif %}
+{% if phase == 'proposal' %}{% for letter in letters %}<details class="glass version-details">
+<summary>{% blocktranslate with name=letter.name %}{{ name }}의 의견서{% endblocktranslate %}</summary>
+<pre>{{ letter.text }}</pre>
+<a class="text-link" href="{% url 'feedback' run.pk letter.index %}">{% trans '텍스트 파일로 내려받기' %} ↗</a>
+</details>{% endfor %}{% endif %}
+</div>
+</div>
+{% endif %}
+<script src="{% static 'review.js' %}" defer>
+</script>
 {% endblock %}
