@@ -3,80 +3,258 @@ const form = document.querySelector('#debate-form');
 const retryButton = document.querySelector('#debate-retry');
 const statusText = document.querySelector('#debate-status');
 const progress = document.querySelector('#debate-progress');
-const waitText = document.querySelector('#debate-wait');
 const reviewNote = document.querySelector('#debate-review-note');
 const output = document.querySelector('#debate-output');
 const stages = {discover:'독립 쟁점 탐색',merge:'쟁점 교차 확인',opening:'독립 입장',reply:'교차 반론',draft:'수정안 초안',review:'역할별 검토',final:'수정 가이드라인'};
-let currentData = null;
 let busy = false;
 function node(tag,text){const el=document.createElement(tag);el.textContent=text;return el;}
-async function post(url,values){
- const response=await fetch(url,{method:'POST',credentials:'same-origin',headers:{'X-CSRFToken':form.querySelector('[name=csrfmiddlewaretoken]').value},body:new URLSearchParams(values)});
- const data=await response.json().catch(()=>({}));
- if(!response.ok){if(data.calls){currentData=data;render(data);}throw Error(data.error||'요청에 실패했습니다.');}return data;
+function brief(text,limit=110){
+ const value=(text||'').replace(/\s+/g,' ').trim();
+ return value.length>limit?value.slice(0,limit).trimEnd()+'…':value;
 }
-function render(data){
- output.replaceChildren();progress.value=data.cursor;
- if(data.issues.length){output.append(node('h2','검토할 쟁점'));for(const issue of data.issues){
-  const card=node('article','');card.className='issue';card.append(node('small',issue.id),node('h3',issue.question),node('blockquote',issue.citation.quote),node('p',issue.consequence));
-  const detail=node('details','');detail.append(node('summary','두 해석과 적용 상황'),node('p',issue.interpretation_one),node('p',issue.interpretation_two),node('p','가정 상황 · '+issue.scenario));card.append(detail);output.append(card);
- }}
- for(const condition of ['A','B']){
-  const calls=data.calls.filter(c=>c.condition===condition);if(!calls.some(c=>c.stage==='final'))continue;
-  const section=node('section','');section.className='condition-result';section.append(node('h2',condition==='A'?'A · 역할별 검토':'B · 자료를 반영한 검토 (잠정)'));
-  const finals=calls.filter(c=>c.stage==='final');
-  for(const call of finals)for(const statement of call.output.statements){const article=node('article','');article.className='issue';article.append(node('small',statement.issue_id+' · 검토 반영 제안'),node('h3',statement.position),node('blockquote',statement.proposal),node('p',statement.reason),node('h4','남은 이견'),node('p',statement.unresolved||'별도 기재 없음'));section.append(article);}
-  const log=node('details','');log.append(node('summary','발언·반론·수정 과정 확인'));
-  for(const call of calls){const block=node('article','');block.className='turn';block.append(node('h3',stages[call.stage]+' · '+call.role));for(const statement of call.output.statements){
-    const s=node('div','');s.id=statement.id;s.append(node('small',statement.id+' / '+statement.issue_id+' / '+statement.verdict),node('h4',statement.position),node('p',statement.reason));
-    if(statement.proposal)s.append(node('blockquote',statement.proposal));
-    const sources=node('details','');sources.append(node('summary','근거와 연결 발언'));
-    for(const citation of statement.citations)sources.append(node('small','원문 구간 '+citation.page),node('blockquote',citation.quote));
-    for(const id of statement.target_ids){const link=node('a',id+' →');link.href='#'+id;sources.append(link,document.createTextNode(' '));}
-    const evidence=Object.values(data.evidence).flat();
-    for(const id of statement.evidence_ids){const found=evidence.find(item=>item.id===id);if(found){sources.append(node('h4',found.kind),node('p',found.context),node('blockquote',found.text),node('small',found.locator));if(found.source.startsWith('https://')){const link=node('a','자료 출처 ↗');link.href=found.source;link.target='_blank';link.rel='noopener';sources.append(link);}}}
-    s.append(sources);block.append(s);
-  }log.append(block);}section.append(log);output.append(section);
+function linkedNode(tag,value,clauses){
+ const el=node(tag,'');const text=String(value||'');const pattern=/\d+(?:\.\d+){1,3}/g;
+ let offset=0;
+ for(const match of text.matchAll(pattern)){
+  const id=match[0],start=match.index;
+  if((start>0&&/[\d.]/.test(text[start-1]))||/[\d.]/.test(text[start+id.length]||''))continue;
+  el.append(document.createTextNode(text.slice(offset,start)));
+  const entries=clauses?.[id];
+  if(entries?.length){
+   const wrap=node('span','');wrap.className='clause-inline';
+   const button=node('button',id);button.type='button';button.className='clause-ref';button.setAttribute('aria-label',`${id} 조항 설명`);
+   const tip=node('span','');tip.className='clause-tooltip';tip.setAttribute('role','tooltip');
+   for(const entry of entries.slice(0,3))tip.append(node('strong',`${entry.title} · ${entry.page}쪽`),node('span',entry.excerpt));
+   button.addEventListener('click',()=>wrap.classList.toggle('open'));
+   wrap.append(button,tip);el.append(wrap);
+  }else el.append(document.createTextNode(id));
+  offset=start+id.length;
  }
- if(data.status==='complete'&&!data.issues.length)output.append(node('p','원문에서 확인 가능한 쟁점을 찾지 못해 토론을 생성하지 않았습니다.'));
+ el.append(document.createTextNode(text.slice(offset)));
+ return el;
 }
-function phaseMessage(data){
- if(data.cursor<4)return '문서에서 해석이 갈릴 수 있는 조항을 찾고 있습니다…';
- if(data.cursor<15)return '학생·교수·학사행정 관점에서 쟁점을 검토하고 있습니다…';
- return '참고 자료를 반영해 수정 방향을 확인하고 있습니다…';
+
+const conditions = {
+ A: 'A · 역할별 검토',
+ B: 'B · 자료 기반 잠정 검토'
+};
+const cards = new Map();
+const renderedCalls = new Set();
+let runId;
+
+function disclosure(label) {
+ const details = node('details', '');
+ details.append(node('summary', label));
+ return details;
 }
-function complete(data){
- statusText.textContent=data.issues.length?'검토가 완료됐습니다. 아래에서 쟁점과 수정 방향을 확인해 주세요.':'원문에서 확인 가능한 쟁점을 찾지 못했습니다. 다른 문서를 검토할 수 있습니다.';
- progress.hidden=true;
- waitText.hidden=true;
- retryButton.hidden=true;
- reviewNote.hidden=!data.manual_review;
- reviewNote.textContent=data.manual_review||'';
+
+function createIssueCard(issue, clauses) {
+ const card = node('article', '');
+ card.className = 'result-card';
+ const label = node('small', `쟁점 ${cards.size + 1}`);
+ label.className = 'result-kicker';
+ const sourceLabel = node('small', `원문 · ${issue.citation.page}쪽`);
+ sourceLabel.className = 'result-kicker';
+ const quote = node('blockquote', issue.citation.quote);
+ quote.className = 'result-quote';
+ const direction = node('div', '');
+ direction.className = 'result-direction';
+ direction.append(node('strong', '수정 방향'), node('p', '수정안을 준비하고 있습니다.'));
+ const interpretations = disclosure('해석이 갈리는 이유');
+ interpretations.append(
+  linkedNode('p', issue.interpretation_one, clauses),
+  linkedNode('p', issue.interpretation_two, clauses),
+  linkedNode('p', issue.consequence, clauses),
+  linkedNode('p', issue.scenario, clauses)
+ );
+
+ const proposals = disclosure('수정 문구와 A/B 비교');
+ proposals.hidden = true;
+ const comparison = node('div', '');
+ comparison.className = 'demo-comparison';
+ proposals.append(comparison);
+
+ const discussion = disclosure('세 관점의 토론');
+ discussion.hidden = true;
+ const threads = {};
+ for (const [condition, title] of Object.entries(conditions)) {
+  const thread = disclosure(title);
+  thread.hidden = true;
+  discussion.append(thread);
+  threads[condition] = thread;
+ }
+
+ card.append(label, linkedNode('h2', issue.question, clauses), sourceLabel, quote, direction,
+             proposals, interpretations, discussion);
+ output.append(card);
+ return {direction, proposals, comparison, discussion, threads};
 }
-function failed(message){
- statusText.textContent=message+' 저장된 단계부터 다시 시도할 수 있습니다.';
- waitText.hidden=true;
- retryButton.hidden=false;
-}
-async function run(allowRetry=false){
- if(busy)return;
- busy=true;
- retryButton.hidden=true;
- waitText.hidden=false;
- progress.hidden=false;
- try{
-  currentData=await post(root.dataset.start,{document_hash:root.dataset.hash,profiles:'0'});
-  render(currentData);
-  if(currentData.status==='failed'&&!allowRetry){failed(currentData.error||'검토가 중단됐습니다.');return;}
-  while(currentData.status!=='complete'){
-   statusText.textContent=phaseMessage(currentData);
-   currentData=await post(`/api/debates/${currentData.id}/step/`,{cursor:String(currentData.cursor),retry:currentData.status==='failed'?'1':'0'});
-   progress.value=currentData.cursor;
-   if([4,15,26].includes(currentData.cursor))render(currentData);
+
+function appendEvidence(container, statement, evidence) {
+ for (const id of statement.evidence_ids) {
+  const item = evidence.get(id);
+  if (!item) continue;
+  container.append(node('h4', item.kind), node('p', item.context),
+                   node('blockquote', item.text), node('small', item.locator));
+  if (item.source.startsWith('https://')) {
+   const link = node('a', '자료 출처 ↗');
+   link.className = 'all-link';
+   link.href = item.source;
+   link.target = '_blank';
+   link.rel = 'noopener';
+   container.append(link);
   }
-  complete(currentData);
- }catch(error){failed(error instanceof TypeError?'서버 연결이 끊겼습니다.':error.message);}
- finally{busy=false;}
+ }
 }
-retryButton.addEventListener('click',()=>run(true));
+
+function showProposal(card, call, statement, clauses, evidence) {
+ const direction = brief(statement.position, 100);
+ if (call.condition === 'A') {
+  card.direction.lastElementChild.replaceWith(linkedNode('p', direction, clauses));
+ }
+ const section = node('section', '');
+ section.className = 'demo-proposal';
+ const wording = linkedNode('p', statement.proposal || statement.position, clauses);
+ wording.className = 'demo-wording';
+ section.append(node('h3', conditions[call.condition]), wording);
+
+ const more = disclosure('제안 이유와 남은 이견');
+ if (statement.proposal && direction.endsWith('…')) {
+  more.append(linkedNode('p', statement.position, clauses));
+ }
+ more.append(linkedNode('p', statement.reason, clauses));
+ if (statement.unresolved) {
+  more.append(node('h4', '남은 이견'), linkedNode('p', statement.unresolved, clauses));
+ }
+ if (call.condition === 'B') {
+  if (statement.evidence_ids.length) appendEvidence(more, statement, evidence);
+  else more.append(node('p', '직접 연결된 참고 자료가 없어 판단을 유보했습니다.'));
+ }
+ section.append(more);
+ card.comparison.append(section);
+ card.proposals.hidden = false;
+}
+
+function showTurn(card, call, statement, clauses, evidence) {
+ const turn = node('article', '');
+ turn.className = 'turn';
+ turn.id = statement.id;
+ turn.append(node('small', `${call.role} · ${stages[call.stage]} · ${statement.verdict}`),
+             linkedNode('p', statement.position, clauses));
+ const more = disclosure('발언 근거와 연결된 검토');
+ more.append(linkedNode('p', statement.reason, clauses));
+ if (statement.proposal) more.append(linkedNode('blockquote', statement.proposal, clauses));
+ if (statement.unresolved) more.append(linkedNode('p', statement.unresolved, clauses));
+ for (const citation of statement.citations) {
+  more.append(node('small', `원문 · ${citation.page}쪽`), node('blockquote', citation.quote));
+ }
+ for (const id of statement.target_ids) {
+  const link = node('a', `연결 발언 ${id} →`);
+  link.className = 'all-link';
+  link.href = '#' + id;
+  more.append(link, document.createTextNode(' '));
+ }
+ appendEvidence(more, statement, evidence);
+ turn.append(more);
+ const thread = card.threads[call.condition];
+ thread.append(turn);
+ thread.hidden = false;
+ card.discussion.hidden = false;
+}
+
+function render(data) {
+ if (runId !== data.id) {
+  runId = data.id;
+  cards.clear();
+  renderedCalls.clear();
+  output.replaceChildren();
+ }
+ progress.max = data.total;
+ progress.value = data.cursor;
+ for (const issue of data.issues) {
+  if (!cards.has(issue.id)) cards.set(issue.id, createIssueCard(issue, data.clauses));
+ }
+
+ const evidence = new Map(Object.values(data.evidence).flat().map(item => [item.id, item]));
+ for (const call of data.calls) {
+  if (!(call.condition in conditions) || renderedCalls.has(call.step)) continue;
+  for (const statement of call.output.statements) {
+   const card = cards.get(statement.issue_id);
+   if (!card) continue;
+   showTurn(card, call, statement, data.clauses, evidence);
+   if (call.stage === 'final') showProposal(card, call, statement, data.clauses, evidence);
+  }
+  renderedCalls.add(call.step);
+ }
+}
+
+async function post(url, values) {
+ const response = await fetch(url, {
+  method: 'POST',
+  credentials: 'same-origin',
+  headers: {'X-CSRFToken': form.querySelector('[name=csrfmiddlewaretoken]').value},
+  body: new URLSearchParams(values)
+ });
+ const data = await response.json().catch(() => ({}));
+ if (!response.ok) {
+  if (data.calls) render(data);
+  throw Error(data.error || '요청에 실패했습니다.');
+ }
+ return data;
+}
+
+function phaseMessage(data) {
+ if (!data.issues.length) return '해석이 갈리는 조항을 찾고 있습니다…';
+ if (data.next?.[0] === 'B') return '참고 자료를 바탕으로 수정안을 검토하고 있습니다…';
+ return '세 관점의 검토와 수정안을 준비하고 있습니다…';
+}
+
+function complete(data) {
+ statusText.textContent = data.issues.length ? '정책 검토가 완료됐습니다.' : '원문에서 해석이 갈리는 조항을 찾지 못했습니다.';
+ progress.hidden = true;
+ const notes = [
+  data.manual_review,
+  data.citation_omissions ? `원문과 일치하지 않은 보조 인용 ${data.citation_omissions}개를 제외했습니다.` : null
+ ].filter(Boolean);
+ reviewNote.hidden = !notes.length;
+ reviewNote.textContent = notes.join(' ');
+}
+
+function failed(message) {
+ statusText.textContent = message;
+ progress.hidden = true;
+ retryButton.hidden = false;
+}
+
+async function run(allowRetry = false) {
+ if (busy) return;
+ busy = true;
+ retryButton.hidden = true;
+ progress.hidden = false;
+ statusText.textContent = '검토 결과를 불러오고 있습니다…';
+ try {
+  let data = await post(root.dataset.start, {document_hash: root.dataset.hash, profiles: '0'});
+  render(data);
+  if (data.status === 'failed' && !allowRetry) {
+   failed(data.error || '검토가 중단됐습니다.');
+   return;
+  }
+  while (data.status !== 'complete') {
+   statusText.textContent = phaseMessage(data);
+   data = await post(`/api/debates/${data.id}/step/`, {
+    cursor: String(data.cursor),
+    retry: data.status === 'failed' ? '1' : '0',
+    parallel_discovery: '1'
+   });
+   render(data);
+  }
+  complete(data);
+ } catch (error) {
+  failed(error instanceof TypeError ? '서버 연결이 끊겼습니다. 저장된 단계부터 다시 시도할 수 있습니다.' : error.message);
+ } finally {
+  busy = false;
+ }
+}
+
+retryButton.addEventListener('click', () => run(true));
 run();

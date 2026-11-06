@@ -2,14 +2,14 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
 from django.core.management import call_command
 from django.test import TestCase
-from .models import Clause, MockRevision, MockTurn, StudyCase
+from ..models import Clause, MockRevision, MockTurn, StudyCase
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client
 from io import BytesIO
 from zipfile import ZipFile
 from pypdf import PdfWriter
 from pypdf.generic import DecodedStreamObject, NameObject, DictionaryObject
-from .features.uploads import extract
+from ..features.uploads import extract
 
 
 class CaseTests(TestCase):
@@ -82,12 +82,14 @@ class UploadTests(TestCase):
         self.assertNotContains(self.client.get("/review/"), 'name="quote"')
         self.assertNotContains(self.client.get("/review/"), 'name="situation"')
         self.assertRedirects(self.client.get("/perspectives/"), "/review/")
+        self.assertRedirects(self.client.get("/revisions/"), "/review/")
         self.assertRedirects(self.client.post("/review/", {"quote": "임의 쟁점", "situation": "임의 상황"}), "/perspectives/")
         self.assertNotIn("quote", self.client.session["policy_draft"])
         result_page = self.client.get("/perspectives/")
-        self.assertContains(result_page, "이 정책에서 검토할 쟁점")
+        self.assertContains(result_page, "정책 검토 결과")
         self.assertNotContains(result_page, 'id="use-profiles"')
         self.assertNotContains(result_page, "쟁점 검토와 토론 실행")
+        self.assertRedirects(self.client.get("/revisions/"), "/perspectives/#debate-output")
         self.client.post("/upload/", {"text": "새로운 정책 문서 내용"})
         self.assertFalse(self.client.session["policy_draft"]["confirmed"])
         self.assertRedirects(self.client.get("/perspectives/"), "/review/")

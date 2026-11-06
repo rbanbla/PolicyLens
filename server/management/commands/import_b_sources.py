@@ -1,7 +1,6 @@
 """Register the user's source workbook as review candidates, not agent opinions."""
 import csv
 import hashlib
-from pathlib import Path
 from openpyxl import load_workbook
 from django.conf import settings
 from django.core.management.base import BaseCommand

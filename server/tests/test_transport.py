@@ -2,7 +2,7 @@ import json
 from io import BytesIO
 from unittest.mock import patch
 from django.test import SimpleTestCase
-from .integrations import transport
+from ..integrations import transport
 
 
 class ProviderTransportTests(SimpleTestCase):

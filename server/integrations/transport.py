@@ -7,10 +7,27 @@ from django.conf import settings
 from dotenv import dotenv_values
 
 
-def provider():
+class ModelError(Exception):
+    """A model call or its output could not be used. The message is shown to users."""
+
+
+def setting(name, default=''):
+    # Read only named settings; never execute .env as shell code or expose secrets.
     local = dotenv_values(settings.BASE_DIR / '.env', interpolate=False)
-    base = (os.environ.get('OPENAI_BASE_URL') or local.get('OPENAI_BASE_URL') or 'https://api.openai.com/v1').rstrip('/')
-    mode = os.environ.get('POLICYLENS_API_MODE') or local.get('POLICYLENS_API_MODE') or 'responses'
+    return os.environ.get(name) or local.get(name) or default
+
+
+def configuration():
+    return setting('OPENAI_API_KEY').strip(), setting('POLICYLENS_SUMMARY_MODEL', 'gpt-4.1').strip()
+
+
+def debate_model(default):
+    return setting('POLICYLENS_DEBATE_MODEL', default)
+
+
+def provider():
+    base = setting('OPENAI_BASE_URL', 'https://api.openai.com/v1').rstrip('/')
+    mode = setting('POLICYLENS_API_MODE', 'responses')
     parsed = urlsplit(base)
     if parsed.scheme != 'https' or not parsed.hostname or parsed.username or parsed.password or parsed.query or parsed.fragment:
         raise ValueError('Invalid provider URL')

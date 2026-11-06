@@ -4,19 +4,22 @@
 
 | 경로 | 책임 |
 | --- | --- |
-| `server/features/` | 정책 화면, 업로드, 요약, 토론, 연구자 HTTP 진입점과 기능별 처리 |
-| `server/application/` | 연구 사례 등록·검증 흐름 |
+| `server/features/` | HTTP 진입점만 담당: 요청 확인, 세션, 잠금, 응답. 업로드 텍스트 추출도 여기에 있음 |
+| `server/application/` | 규칙: 사례 등록(`cases`), 문서 지문·인용 복원(`documents`), 요약(`summaries`), 토론 단계·프롬프트·검증(`debates`) |
 | `server/data/` | 수집 코퍼스 카탈로그, Evidence·프로필 적재와 역할별 근거 검색 |
-| `server/integrations/` | 외부 모델 API 요청과 응답 형식 통일 |
+| `server/integrations/` | 외부 모델 API 호출, 응답 형식 통일, 모델 설정 읽기, 공통 오류 `ModelError` |
 | `server/models.py`, `server/migrations/` | PostgreSQL 스키마와 변경 이력 |
 | `server/management/commands/` | 초기 자료 적재, 엑셀 후보 등록, B 자료 목록 생성 |
 | `server/static/`, `server/templates/` | 모바일 웹 자산과 HTML |
-| `server/test_*.py`, `server/tests.py` | DB, 모델 호출 계약, 화면과 보안 검증 |
+| `server/tests/` | DB, 모델 호출 계약, 화면과 보안 검증 |
 | `scripts/data/` | 공개 출처 수집·행 검증·역할별 링크 생성 도구. 서버 요청 경로에서 실행되지 않음 |
-| `phase1/study_v1.json` | A 프롬프트와 단계 설정의 버전 고정본 |
+| `study/` | A 프롬프트·단계 설정 고정본(`study_v1.json`)과 사례 입력 검사(`prepare_case.py`). 서버가 실행 중에 읽음 |
 | `render.yaml`, `deploy/` | Render 웹·DB 배포 설정, 정적 파일 빌드와 선별 DB 초기 적재본 |
+| `docs/` | 구조·로드맵(`README.md`가 지도), 명세(`specs/`), 운영(`ops/`) 문서 |
+| `validation/` | 실제 모델 호출 결과와 전송 내용 확인본. `/demo/`가 `LIVE_RUN_RESULT.json`을 실행 중에 읽음 |
+| `design/` | 첫 화면 미리보기 이미지의 Stageshow 소스. 서버 실행에는 쓰이지 않음 |
 
-HTTP 진입점은 `server/urls.py`에서 `features/`로 연결된다. `features/`는 `application/`, `data/`, `integrations/`, ORM 모델을 사용한다. 외부 API 키는 `integrations/`에서만 HTTP 요청에 첨부한다. 원격 원문과 업로드 문서는 실행 지시가 아닌 입력 데이터로 취급한다.
+의존 방향은 `urls → features → application → data·integrations·models`다. `features/`끼리는 서로 가져다 쓰지 않고, 공통 규칙은 `application/`에 둔다. `.env`는 `integrations/transport.py`의 `setting()`으로만 읽는다. 외부 API 키는 `integrations/`에서만 HTTP 요청에 첨부한다. 원격 원문과 업로드 문서는 실행 지시가 아닌 입력 데이터로 취급한다.
 
 ## 데이터 레이어
 

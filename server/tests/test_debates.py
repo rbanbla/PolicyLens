@@ -1,12 +1,14 @@
 import json
 from copy import deepcopy
+from threading import Barrier
 from types import SimpleNamespace
 from unittest.mock import patch
 from django.test import TestCase, Client
-from .models import DebatePair, DebateCall, ResearchAsset, Evidence
-from .features.debates import STEPS, check_citation
-from .features.summaries import fingerprint, SummaryError
-from .data.corpus import retrieve
+from ..models import DebatePair, DebateCall, ResearchAsset, Evidence
+from ..application.debates import STEPS, check_citation, clause_glossary
+from ..application.documents import fingerprint
+from ..integrations.transport import ModelError
+from ..data.corpus import retrieve
 
 TEXT = "과제에 사용한 AI 도구를 공개한다."
 ISSUE = {"question": "공개 범위는 어디까지인가?", "interpretation_one": "도구명만 공개한다.",
@@ -34,6 +36,14 @@ def mock_response(payload, key):
 
 @patch("server.features.debates.configuration", return_value=("test-key", "gpt-4.1"))
 class DebateTests(TestCase):
+    def test_clause_glossary_keeps_same_number_from_both_policy_sections(self, config):
+        pages = [{"text": "5.2.1. 안전한 도구 사용\n교수자는 승인 도구를 안내한다."},
+                 {"text": "5.2.1. 안전한 도구 사용\n학생은 허용된 도구를 활용한다."}]
+        entries = clause_glossary(pages)["5.2.1"]
+        self.assertEqual([item["page"] for item in entries], [1, 2])
+        self.assertIn("교수자", entries[0]["excerpt"])
+        self.assertIn("학생", entries[1]["excerpt"])
+
     def test_pdf_quote_is_restored_to_literal_source(self, config):
         pair = SimpleNamespace(document={"pages": [{"text": "다른 정책 문구"}, {"text": "AI  사용\n범위를 공개한다."}]})
         citation = {"page": 1, "quote": "AI 사용 범위를 공개한다."}
@@ -63,7 +73,7 @@ class DebateTests(TestCase):
     def start(self):
         return self.client.post("/api/debates/start/", {"document_hash": self.digest})
 
-    @patch("server.features.debates.run_model", side_effect=mock_response)
+    @patch("server.application.debates.run_model", side_effect=mock_response)
     def test_full_pair_and_condition_isolation(self, model, config):
         response = self.start()
         self.assertEqual(response.status_code, 200)
@@ -92,14 +102,14 @@ class DebateTests(TestCase):
         self.assertEqual(Client().get(f"/api/debates/{pk}/").status_code, 404)
         self.assertEqual(Client(enforce_csrf_checks=True).post("/api/debates/start/").status_code, 403)
 
-    @patch("server.features.debates.run_model", side_effect=mock_response)
+    @patch("server.application.debates.run_model", side_effect=mock_response)
     def test_retry_and_duplicate_cursor(self, model, config):
         pk = self.start().json()["id"]
         url = f"/api/debates/{pk}/step/"
         self.client.post(url, {"cursor": "0"})
         self.client.post(url, {"cursor": "0"})
         self.assertEqual(model.call_count, 1)
-        model.side_effect = SummaryError("test timeout")
+        model.side_effect = ModelError("test timeout")
         self.assertEqual(self.client.post(url, {"cursor": "1"}).status_code, 502)
         self.assertEqual(DebatePair.objects.get(pk=pk).cursor, 1)
         model.side_effect = mock_response
@@ -107,7 +117,40 @@ class DebateTests(TestCase):
         self.assertEqual(DebateCall.objects.get(step=1).attempts, 2)
         self.assertEqual(DebatePair.objects.get(pk=pk).cursor, 2)
 
-    @patch("server.features.debates.run_model")
+    @patch("server.application.debates.run_model")
+    def test_parallel_discovery_retries_only_the_failed_role(self, model, config):
+        barrier = Barrier(3, timeout=5)
+
+        def discover(payload, key):
+            barrier.wait()
+            if json.loads(payload["input"])["role"] == "faculty":
+                raise ModelError("test timeout")
+            return {"issues": [deepcopy(ISSUE)]}, "test", {}
+
+        model.side_effect = discover
+        pk = self.start().json()["id"]
+        url = f"/api/debates/{pk}/step/"
+        batch = {"cursor": "0", "parallel_discovery": "1"}
+        first = self.client.post(url, batch)
+        self.assertEqual(first.status_code, 502)
+        self.assertEqual(first.json()["cursor"], 1)
+        self.assertEqual([call["step"] for call in first.json()["calls"]], [0, 2])
+
+        model.side_effect = None
+        model.return_value = {"issues": [deepcopy(ISSUE)]}, "retry", {}
+        batch.update(cursor="1", retry="1")
+        second = self.client.post(url, batch)
+        self.assertEqual(second.status_code, 200)
+        self.assertEqual(second.json()["cursor"], 3)
+        self.assertEqual(model.call_count, 4)
+        self.assertEqual(json.loads(model.call_args.args[0]["input"])["role"], "faculty")
+
+        model.side_effect = mock_response
+        merged = self.client.post(url, {"cursor": "3", "parallel_discovery": "1"})
+        self.assertEqual(merged.status_code, 200)
+        self.assertEqual(merged.json()["issues"][0]["candidate_ids"], ["C1-1", "C2-1", "C3-1"])
+
+    @patch("server.application.debates.run_model")
     def test_invalid_quote_not_committed(self, model, config):
         bad = deepcopy(ISSUE)
         bad["citation"]["quote"] = "없는 문장"
@@ -117,7 +160,36 @@ class DebateTests(TestCase):
         self.assertEqual(DebatePair.objects.get(pk=pk).cursor, 0)
         self.assertEqual(DebateCall.objects.get().response, {})
 
-    @patch("server.features.debates.run_model", return_value=({"issues": []}, "test", {}))
+    @patch("server.application.debates.run_model")
+    def test_failed_saved_output_can_be_revalidated_without_model_call(self, model, config):
+        model.return_value = {"issues": [deepcopy(ISSUE)]}, "test", {}
+        pk = self.start().json()["id"]
+        url = f"/api/debates/{pk}/step/"
+        with patch("server.application.debates.validate", side_effect=ModelError("old validation")):
+            self.assertEqual(self.client.post(url, {"cursor": "0"}).status_code, 502)
+        model.side_effect = AssertionError("saved output should be reused")
+        response = self.client.post(url, {"cursor": "0", "retry": "1"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["cursor"], 1)
+        self.assertEqual(DebateCall.objects.get(step=0).attempts, 1)
+
+    @patch("server.application.debates.run_model")
+    def test_optional_unmatched_citation_is_removed(self, model, config):
+        model.side_effect = mock_response
+        pk = self.start().json()["id"]
+        for cursor in range(4):
+            self.assertEqual(self.client.post(f"/api/debates/{pk}/step/", {"cursor": str(cursor)}).status_code, 200)
+        statement = {"issue_id": "I1", "position": "공개 범위를 명확히 한다", "reason": "원문에 공개 의무가 있다",
+                     "citations": [{"page": 1, "quote": TEXT}, {"page": 1, "quote": "문서에 없는 보조 인용"}],
+                     "evidence_ids": [], "target_ids": [], "proposal": "범위를 적는다", "verdict": "proposal", "unresolved": "예외"}
+        model.side_effect = None
+        model.return_value = {"statements": [statement]}, "test", {}
+        response = self.client.post(f"/api/debates/{pk}/step/", {"cursor": "4"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["citation_omissions"], 1)
+        self.assertEqual(DebateCall.objects.get(step=4).response["statements"][0]["citations"], [{"page": 1, "quote": TEXT}])
+
+    @patch("server.application.debates.run_model", return_value=({"issues": []}, "test", {}))
     def test_no_issue_stops_without_fabricated_debate(self, model, config):
         pk = self.start().json()["id"]
         for cursor in range(4):
@@ -149,7 +221,7 @@ class CorpusTests(TestCase):
         self.assertEqual(retrieve("공개 기록 과제 개인정보", "administration")[0]["id"], "actual")
 
     def test_reimport_preserves_manual_disable_and_filters_stale(self):
-        from .data.corpus import evidence
+        from ..data.corpus import evidence
         asset = ResearchAsset.objects.create(path="source", title="Source", category="opinion_dataset")
         evidence(asset, "student", "participant_excerpt", "page 1", "AI disclosure", "test context")
         item = Evidence.objects.get()

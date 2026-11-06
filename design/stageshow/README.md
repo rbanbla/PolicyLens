@@ -1,5 +1,7 @@
 # PolicyLens product preview
 
+Not used at runtime. `node_modules/` and `dist/` are not kept; run `npm install` first.
+
 This is the editable Stageshow source for the still used on the PolicyLens homepage. It uses the kit and film scripts copied from `benjitaylor/skills/stageshow` (see LICENSE and NOTICE.md). The Django page serves the exported PNGs and does not load React at runtime.
 
 Node.js 20.19+ and Chrome are required to rebuild and inspect the still. On this Mac, Node 22 is installed through Homebrew:

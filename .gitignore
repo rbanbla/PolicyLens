@@ -10,3 +10,4 @@ data/b/
 staticfiles/
 *.pyc
 .DS_Store
+.local/

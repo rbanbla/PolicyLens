@@ -5,10 +5,11 @@ from zipfile import ZipFile, BadZipFile
 import xml.etree.ElementTree as ET
 
 from django.shortcuts import redirect, render
+from django.urls import reverse
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.cache import never_cache
 from pypdf import PdfReader
-from .summaries import fingerprint
+from ..application.documents import fingerprint
 
 MAX_BYTES = 10 * 1024 * 1024
 MAX_TEXT = 100_000
@@ -115,3 +116,12 @@ def perspectives(request):
     if not draft or not draft.get("confirmed"):
         return redirect("review")
     return render(request, "perspectives.html", {"draft": draft, "document_hash": fingerprint(draft)})
+
+
+@require_http_methods(["GET"])
+@never_cache
+def revisions(request):
+    draft = request.session.get("policy_draft")
+    if not draft or not draft.get("confirmed"):
+        return redirect("review")
+    return redirect(reverse("perspectives") + "#debate-output")

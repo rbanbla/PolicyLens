@@ -5,7 +5,7 @@ from unittest.mock import patch
 from django.http import HttpResponse
 from django.test import RequestFactory, SimpleTestCase
 
-from .middleware import DemoBasicAuthMiddleware
+from ..middleware import DemoBasicAuthMiddleware
 
 
 class DemoGateTests(SimpleTestCase):

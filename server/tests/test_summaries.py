@@ -5,8 +5,10 @@ from unittest.mock import patch
 from urllib.error import HTTPError
 
 from django.test import TestCase, Client, SimpleTestCase
-from .models import PolicySummary
-from .features.summaries import SummaryError, fingerprint, generate, validate_summary
+from ..models import PolicySummary
+from ..application.documents import fingerprint
+from ..application.summaries import generate, validate_summary
+from ..integrations.transport import ModelError
 
 PAGES = [{"label": "1쪽", "text": "AI 사용 범위를 기록한다. 단, 맞춤법 교정은 제외한다."}]
 RESULT = {"items": [{"title": "AI 사용 기록", "summary": "AI 사용 범위를 기록하되 맞춤법 교정은 제외합니다.",
@@ -20,7 +22,7 @@ class SummaryValidationTests(SimpleTestCase):
         for citation in [{"page": 1, "quote": "자동으로 퇴학된다."}, {"page": 2, "quote": PAGES[0]["text"]}, {"page": True, "quote": "AI"}]:
             bad = deepcopy(RESULT)
             bad["items"][0]["citations"] = [citation]
-            with self.assertRaises(SummaryError):
+            with self.assertRaises(ModelError):
                 validate_summary(bad, PAGES)
 
     def test_pdf_whitespace_is_recovered_as_exact_source_text(self, provider):
@@ -30,7 +32,7 @@ class SummaryValidationTests(SimpleTestCase):
         recovered = validate_summary(result, pages)["items"][0]["citations"][0]
         self.assertEqual(recovered["quote"], pages[0]["text"])
         result["items"][0]["citations"] = [{"page": 1, "quote": "AI 사용 범위를 금지한다. 단, 교정은 제외한다."}]
-        with self.assertRaises(SummaryError):
+        with self.assertRaises(ModelError):
             validate_summary(result, pages)
 
     @patch("server.integrations.transport.urlopen")
@@ -49,7 +51,7 @@ class SummaryValidationTests(SimpleTestCase):
     @patch("server.integrations.transport.urlopen")
     def test_errors_do_not_leak_provider_data(self, open_url, provider):
         open_url.side_effect = HTTPError("https://api.openai.com", 401, "secret-provider-error", {}, None)
-        with self.assertRaises(SummaryError) as error:
+        with self.assertRaises(ModelError) as error:
             generate(PAGES, "test-key", "gpt-4.1")
         self.assertNotIn("secret-provider-error", str(error.exception))
 
@@ -85,7 +87,7 @@ class SummaryEndpointTests(TestCase):
         self.assertEqual(Client().post("/api/summary/").status_code, 400)
         self.assertEqual(Client(enforce_csrf_checks=True).post("/api/summary/").status_code, 403)
 
-    @patch("server.features.summaries.generate", side_effect=SummaryError("일시적 연결 실패"))
+    @patch("server.features.summaries.generate", side_effect=ModelError("일시적 연결 실패"))
     def test_failure_requires_explicit_retry(self, generate_mock, config):
         self.assertEqual(self.post().status_code, 502)
         self.assertEqual(self.post().status_code, 502)

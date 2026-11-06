@@ -1,21 +1,38 @@
 {% extends "base.html" %}{% block content %}
-<section class="workspace demo-snapshot">
-  <a class="crumb" href="{% url 'home' %}">← 문서 업로드로 돌아가기</a>
-  <div class="kicker"><b aria-hidden="true"></b> VALIDATED DEMO</div>
-  <h1>저장된 토론 결과</h1>
-  <p class="demo-lead">짧은 모의 정책으로 실제 모델을 호출해 검증한 결과입니다. 오늘 시연에서는 모델 응답을 기다리지 않고 쟁점, A·잠정 B의 수정안을 살펴볼 수 있습니다.</p>
-  <p class="demo-note">2026년 11월 4일 저장본 · 모의 정책 · 실제 대학의 공식 지침이나 연구 결론이 아닙니다.</p>
+<section class="workspace narrow">
+  <a class="crumb" href="{% url 'home' %}">← 홈</a>
+  <h1>예시 검토 결과</h1>
+  <p class="document-meta">모의 대학 AI 정책 · 2026년 11월 4일 저장</p>
   {% for item in issues %}
-  <article class="demo-issue">
-    <div class="step-label">쟁점 {{ forloop.counter|stringformat:"02d" }}</div>
+  <article class="result-card">
+    <small class="result-kicker">쟁점 {{ forloop.counter|stringformat:"02d" }}</small>
     <h2>{{ item.question }}</h2>
-    <blockquote>{{ item.quote }}</blockquote>
-    <div class="demo-comparison">
-      {% if item.a %}<section class="demo-proposal"><span class="demo-tag">A · 역할 프롬프트</span><h3>수정 제안</h3><p class="demo-wording">{{ item.a.proposal }}</p><details><summary>제안 이유와 남은 이견</summary><p>{{ item.a.reason }}</p><h4>남은 이견</h4><p>{{ item.a.unresolved }}</p></details></section>{% endif %}
-      {% if item.b %}<section class="demo-proposal"><span class="demo-tag">B · 수집 자료 기반 잠정 결과</span><h3>수정 제안</h3><p class="demo-wording">{{ item.b.proposal }}</p><details><summary>제안 이유와 남은 이견</summary><p>{{ item.b.reason }}</p><h4>남은 이견</h4><p>{{ item.b.unresolved }}</p></details></section>{% endif %}
+    <small class="result-kicker">원문</small>
+    <blockquote class="result-quote">{{ item.quote }}</blockquote>
+    {% if item.direction %}
+    <div class="result-direction">
+      <strong>수정 방향</strong>
+      <p>{{ item.direction }}</p>
     </div>
+    {% endif %}
+    <details>
+      <summary>수정 문구와 A/B 비교</summary>
+      <div class="demo-comparison">
+        {% for variant in item.variants %}
+        <section class="demo-proposal">
+          <h3>{{ variant.label }}</h3>
+          <p class="demo-wording">{{ variant.proposal }}</p>
+          <details>
+            <summary>제안 이유와 남은 이견</summary>
+            <p>{{ variant.reason }}</p>
+            {% if variant.unresolved %}<h4>남은 이견</h4><p>{{ variant.unresolved }}</p>{% endif %}
+          </details>
+        </section>
+        {% endfor %}
+      </div>
+    </details>
   </article>
   {% endfor %}
-  <a class="primary" href="{% url 'home' %}">내 문서로 검토 시작 →</a>
+  <a class="primary" href="{% url 'home' %}">내 정책 검토하기 <span aria-hidden="true">→</span></a>
 </section>
 {% endblock %}

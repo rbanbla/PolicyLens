@@ -2,8 +2,12 @@ import hashlib
 import json
 from django.conf import settings
 from django.db import transaction
-from phase1.prepare_case import prepare
+from study.prepare_case import prepare
 from ..models import Clause, StudyCase
+
+
+def load_spec():
+    return json.loads((settings.BASE_DIR / "study" / "study_v1.json").read_text(encoding="utf-8"))
 
 
 @transaction.atomic
@@ -12,7 +16,7 @@ def register(document, case):
         raise ValueError("사례는 JSON 객체여야 합니다.")
     if case.get("condition", "A") != "A" or any(k in case for k in ("evidence_ids", "evidence_pack", "evidence_pack_id")):
         raise ValueError("Phase 2는 실제 의견 자료가 없는 A 조건만 등록합니다.")
-    spec = json.loads((settings.BASE_DIR/"phase1"/"study_v1.json").read_text(encoding="utf-8"))
+    spec = load_spec()
     inputs = prepare(document, case, spec)
     for checked, original in zip(inputs["clauses"], case["clauses"]):
         issue = original.get("issue")

@@ -14,6 +14,10 @@ Cloudflare [Quick Tunnel](https://developers.cloudflare.com/tunnel/get-started/q
 
 `demo-online.sh`는 터널 주소를 얻은 뒤에 Django를 시작한다. Django는 그 주소 하나만 허용 호스트 및 CSRF 신뢰 출처로 등록하고, 공유 비밀번호 없이는 동적 경로를 열지 않는다. 쿠키는 HTTPS에서만 전송되며, 정적 CSS·이미지는 WhiteNoise가 제공한다. API 키는 로컬 `.env`에만 있다.
 
+## 2026-11-05 관찰
+
+약 4시간 실행 중 터널이 여러 번 끊겼다가 재연결됐고, 12:59경 노트북 덮개가 닫히며 잠든 시점에 터널이 사라져 공개 주소가 응답하지 않게 됐다. 이때 `cloudflared` 프로세스와 로컬 서버는 살아 있었고, 로그에만 `Tunnel not found`가 남았다. 프로세스가 떠 있다고 주소가 살아 있는 것은 아니다. 참석자에게 주소를 보내기 직전에 외부망으로 `/health/`를 확인한다. 진행 중에는 전원을 연결하고 덮개를 열어 두며 `caffeinate`로 잠들지 않게 한다.
+
 ## 범위
 
 - 참석자가 올린 PDF·DOCX·TXT 또는 붙여 넣은 원문, 브라우저 세션 요청, 요약·토론 응답은 Cloudflare를 경유한다. 모델 호출 입력은 별도로 현재 모델 제공자에게 전송된다.

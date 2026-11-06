@@ -4,7 +4,6 @@ import hashlib
 import json
 import re
 from collections import Counter
-from pathlib import Path
 from django.conf import settings
 from ..models import ResearchAsset, Evidence, SyntheticProfile
 

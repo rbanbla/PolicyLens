@@ -1,7 +1,7 @@
 from django.core.management import call_command
 from django.test import TestCase
 
-from .models import BSourceCandidate, Evidence
+from ..models import BSourceCandidate, Evidence
 
 
 class BSourceWorkbookTests(TestCase):

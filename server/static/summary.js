@@ -12,8 +12,9 @@ async function summarize(isRetry = false) {
   if (busy) return;
   busy = true;
   retry.hidden = true;
-  panel.setAttribute('aria-busy', 'true');
-  message.textContent = '문서 전체에서 주요 내용을 요약하고 있습니다…';
+  items.setAttribute('aria-busy', 'true');
+  message.classList.remove('sr-only');
+  message.textContent = '문서의 주요 내용을 정리하고 있습니다…';
   try {
     const response = await fetch(panel.dataset.url, {
       method: 'POST', credentials: 'same-origin',
@@ -26,7 +27,7 @@ async function summarize(isRetry = false) {
     for (const item of data.items) {
       const article = document.createElement('article');
       article.className = 'summary-item';
-      article.append(element('h4', item.title), element('p', item.summary));
+      article.append(element('h2', item.title), element('p', item.summary));
       const details = document.createElement('details');
       details.append(element('summary', '원문 근거 확인'));
       for (const citation of item.citations) {
@@ -35,13 +36,18 @@ async function summarize(isRetry = false) {
       article.append(details);
       items.append(article);
     }
-    message.textContent = '주요 내용 ' + data.items.length + '개를 정리했습니다.';
+    if (data.items.length) {
+      message.classList.add('sr-only');
+      message.textContent = '주요 내용 ' + data.items.length + '개를 정리했습니다.';
+    } else {
+      message.textContent = '원문에서 요약할 주요 내용을 찾지 못했습니다.';
+    }
   } catch (error) {
     message.textContent = error instanceof TypeError ? '서버 연결이 끊겼습니다. 잠시 후 다시 시도해 주세요.' : error.message;
     retry.hidden = false;
   } finally {
     busy = false;
-    panel.setAttribute('aria-busy', 'false');
+    items.setAttribute('aria-busy', 'false');
   }
 }
 retry.addEventListener('click', () => summarize(true));
