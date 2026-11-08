@@ -18,7 +18,7 @@ def create_run(owner, title, pages, language='ko'):
     _, model = transport.configuration()
     return ReviewRun.objects.create(
         owner=owner, title=title.strip()[:200] or gettext('정책 검토'), pages=pages, language=language,
-        model=model, provider=transport.identity(),
+        model=model, provider=transport.identity(), structured_facts=True,
         prompts={p.stem: p.read_text() for p in (settings.BASE_DIR / 'prompts').glob('*.md')})
 
 def ready_key(run):
@@ -34,32 +34,41 @@ def output_text(response):
         raise ValueError(gettext('모델 응답이 완료되지 않았습니다. 다시 시도하세요.'))
     return ''.join(p['text'] for item in response['output'] if item.get('type') == 'message' for p in item.get('content', []) if p.get('type') == 'output_text')
 
-def call_model(run, stage, payload, key):
-    # The provider sometimes stalls on a single request; asking again changes nothing, so one stall need not stop the review.
-    for last in (False, True):
+def call_model(run, stage, payload, key, purpose='model'):
+    index = len(run.steps) if stage not in ('analysis', 'baseline') else None
+    role = steps_for(role_count(run), run.selected_role)[index][1] if index is not None else None
+    for attempt in (1, 2):
         started = time.monotonic()
+        entry = {'stage': stage, 'step_index': index, 'role': role, 'purpose': purpose, 'attempt': attempt}
         try:
             response = transport.call(payload, key)
         except Exception as exc:
-            run.calls.append({'stage': stage, 'seconds': round(time.monotonic() - started, 1), 'error': type(exc).__name__})
-            if last or not isinstance(exc, TimeoutError):
+            entry['error'] = type(exc).__name__
+            if attempt == 2 or not isinstance(exc, TimeoutError):
                 raise
         else:
-            run.calls.append({'stage': stage, 'seconds': round(time.monotonic() - started, 1), 'tokens': response.get('usage', {}).get('total_tokens')})
+            usage = response.get('usage') or {}
+            entry.update(tokens=usage.get('total_tokens'),
+                         input_tokens=usage.get('input_tokens', usage.get('prompt_tokens')),
+                         output_tokens=usage.get('output_tokens', usage.get('completion_tokens')))
             return response
+        finally:
+            elapsed = time.monotonic() - started
+            entry.update(seconds=round(elapsed, 1), elapsed_ms=round(elapsed * 1000, 2))
+            run.calls.append(entry)
 
 def agent_loop(run, stage, payload, key, research, search_first):
     # The model picks what to look up and when to stop; the server runs the tools and caps the rounds.
     conversation = [{'role': 'user', 'content': payload['input']}]
     for round_number in range(MAX_TOOL_ROUNDS):
         choice = {'tool_choice': 'required'} if search_first and round_number == 0 else {}
-        response = call_model(run, stage, {**payload, 'input': conversation, 'tools': TOOLS, **choice}, key)
+        response = call_model(run, stage, {**payload, 'input': conversation, 'tools': TOOLS, **choice}, key, 'model' if round_number == 0 else 'tool_followup')
         calls = [item for item in response.get('output', []) if item.get('type') == 'function_call']
         if not calls:
             return output_text(response)
         conversation += calls + [{'type': 'function_call_output', 'call_id': call['call_id'], 'output': run_tool(run.pages, research, call)}
                                  for call in calls]
-    return output_text(call_model(run, stage, {**payload, 'input': conversation, 'tools': TOOLS, 'tool_choice': 'none'}, key))
+    return output_text(call_model(run, stage, {**payload, 'input': conversation, 'tools': TOOLS, 'tool_choice': 'none'}, key, 'tool_followup'))
 
 def generate(run, stage, data, schema, check, research=None, search_first=False):
     key = ready_key(run)
@@ -68,7 +77,7 @@ def generate(run, stage, data, schema, check, research=None, search_first=False)
     payload = {'model': run.model, 'store': False, 'instructions': '\n'.join(instructions), 'input': body, 'max_output_tokens': 6000, 'text': {'format': {'type': 'json_schema', 'name': 'review', 'strict': True, 'schema': schema}}}
     search = research is not None
     for retry in (True, False):
-        text = agent_loop(run, stage, payload, key, research, search_first) if search else output_text(call_model(run, stage, payload, key))
+        text = agent_loop(run, stage, payload, key, research, search_first) if search else output_text(call_model(run, stage, payload, key, 'model' if retry else 'repair'))
         try:
             output = json.loads(text)
             validate_shape(output, schema)
@@ -116,7 +125,7 @@ def advance(run):
     targets = reference_ids(context, stage, role)
     data = stage_input(run, stage, role, context, targets, turn_of(len(run.steps), count))
     required = [target for claim in data.get('assigned_claims', []) for target in claim.values() if target]
-    research = new_research(run.as_of) if uses_sources(run, stage) else None
+    research = new_research(run.as_of, structured_facts=run.structured_facts) if uses_sources(run, stage) else None
     def check(output):
         validate_report(run.pages, output, stage, targets, required)
         check_sources(output, research['opened'] if research else {})
@@ -125,7 +134,7 @@ def advance(run):
     result = generate(run, stage, data, report(stage, targets), check, research, search_first)
     if stage in ('issues', 'final'):
         result['items'].sort(key=lambda item: PRIORITY_ORDER.index(item['priority']))
-    steps = run.steps + [{'stage': stage, 'role': role, 'result': result, **({'research': research['log']} if research else {})}]
+    steps = run.steps + [{'stage': stage, 'role': role, 'result': result, **({'research': research['log'], 'policy_facts': research['facts']} if research else {})}]
     # Turns with nothing left to do are recorded now, so the cursor always rests on a turn that needs a model call.
     while len(steps) < len(plan) and is_skipped(steps, len(steps), count):
         steps.append({'stage': plan[len(steps)][0], 'role': plan[len(steps)][1], 'result': {'summary': '', 'items': []}, 'skipped': True})

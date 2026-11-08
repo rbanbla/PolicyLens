@@ -11,6 +11,7 @@ class ReviewRun(models.Model):
     baseline = models.TextField(blank=True)
     evaluation = models.JSONField(default=dict)
     as_of = models.DateField(null=True)
+    structured_facts = models.BooleanField(default=False)
     calls = models.JSONField(default=list)
     prompts = models.JSONField()
     model = models.CharField(max_length=100)
@@ -30,3 +31,40 @@ class Source(models.Model):
     source_url = models.URLField(max_length=1000)
     published_on = models.DateField(null=True)
     pages = models.JSONField()
+
+
+class Policy(models.Model):
+    policy_id = models.SlugField(max_length=96, primary_key=True)
+    title = models.CharField(max_length=300)
+    region_code = models.CharField(max_length=20)
+    issuer = models.CharField(max_length=200)
+
+
+class PolicyVersion(models.Model):
+    version_id = models.SlugField(max_length=96, primary_key=True)
+    policy = models.ForeignKey(Policy, on_delete=models.CASCADE, related_name='versions')
+    label = models.CharField(max_length=200)
+    supersedes = models.ForeignKey('self', on_delete=models.PROTECT, null=True, blank=True)
+    effective_from = models.DateField(null=True, blank=True)
+    effective_until = models.DateField(null=True, blank=True)
+    application_from = models.DateField(null=True, blank=True)
+    application_until = models.DateField(null=True, blank=True)
+
+
+class PolicyFact(models.Model):
+    fact_id = models.SlugField(max_length=96, primary_key=True)
+    version = models.ForeignKey(PolicyVersion, on_delete=models.CASCADE, related_name='facts')
+    predicate = models.CharField(max_length=20, choices=[(v, v) for v in ('eligibility', 'benefit', 'application', 'exclusion', 'interaction')])
+    value = models.JSONField()
+    status = models.CharField(max_length=10, default='pending', choices=[(v, v) for v in ('pending', 'verified', 'rejected')])
+    reviewed_by = models.CharField(max_length=200, blank=True)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    extracted_by = models.CharField(max_length=200)
+
+
+class FactEvidence(models.Model):
+    fact = models.ForeignKey(PolicyFact, on_delete=models.CASCADE, related_name='evidence')
+    source = models.ForeignKey(Source, on_delete=models.SET_NULL, null=True)
+    source_hash = models.CharField(max_length=64)
+    page = models.PositiveIntegerField()
+    quote = models.TextField()

@@ -877,7 +877,9 @@ class ReviewFlowTests(TestCase):
         self.assertNotIn('tool_choice', model.call_args_list[1].args[0])
         self.assertEqual(model.call_args_list[1].args[0]['input'][-1]['type'], 'function_call_output')
         step = run.steps[0]
-        self.assertEqual(step['research'], [{'tool': 'search_sources', 'input': '청년월세 중복', 'found': 1}])
+        self.assertEqual([{k: v for k, v in log.items() if k != 'elapsed_ms'} for log in step['research']],
+                         [{'tool': 'search_sources', 'input': '청년월세 중복', 'found': 1}])
+        self.assertGreaterEqual(step['research'][0]['elapsed_ms'], 0)
         self.assertEqual(step['result']['items'][0]['sources'][0]['title'], '국토부 청년월세 공고')
         Source.objects.all().delete()
         self.assertContains(self.client.get(f'/reviews/{run.pk}/?page=discussion'), '지원 대상')
@@ -1097,7 +1099,7 @@ class ReviewFlowTests(TestCase):
             (base / 'reviewed').mkdir(parents=True)
             (base / 'processed' / 'doc').mkdir(parents=True)
             (base / 'processed' / 'doc' / 'pages.json').write_text(json.dumps([{'page': 1, 'text': TEXT}]))
-            (base / 'reviewed' / 'documents.jsonl').write_text(json.dumps({'doc_id': 'doc', 'title': '월세', 'published_on': '2026-04-30'}))
+            (base / 'reviewed' / 'documents.jsonl').write_text(json.dumps({'doc_id': 'doc', 'title': '월세', 'published_on': '2026-04-30', 'gate': {'technical': 'pass', 'rights': 'pass'}, 'external_send_ok': True}))
             prompts = Path(__file__).resolve().parent.parent / 'prompts'
             (Path(folder) / 'prompts').symlink_to(prompts)
             before = ReviewRun.objects.count()
@@ -1108,6 +1110,15 @@ class ReviewFlowTests(TestCase):
             with patch('server.integrations.transport.call', side_effect=reply):
                 call_command('evaluate', 'doc', '--no-sources', stdout=StringIO())
             saved = json.loads((base / 'reviewed' / 'runs' / 'doc-document.json').read_text())
+            with patch('server.integrations.transport.call', side_effect=reply) as paired_model:
+                call_command('evaluate', 'doc', '--structured-facts', '--reference-run', str(base / 'reviewed' / 'runs' / 'doc-document.json'), stdout=StringIO())
+            paired = json.loads((base / 'reviewed' / 'runs' / 'doc-structured.json').read_text())
+            self.assertEqual(paired['analysis'], saved['analysis'])
+            self.assertEqual(paired['baseline'], saved['baseline'])
+            self.assertTrue(paired['reused_analysis_and_baseline'])
+            self.assertTrue(paired['structured_facts'])
+            self.assertFalse(any(c['stage'] in ('analysis', 'baseline') for c in paired['calls']))
+
         self.assertEqual(saved['as_of'], '2026-04-30')
         self.assertEqual(saved['baseline'], '기준선')
         self.assertEqual(len(saved['steps']), 20)
