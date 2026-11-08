@@ -1244,3 +1244,72 @@ class LanguageTests(TestCase):
     def test_english_error_messages(self):
         self.client.get('/?lang=en')
         self.assertContains(self.client.post('/', {'text': ' '}), 'Enter between 1 and 100,000 characters')
+
+
+def news_item(news_id, title, approved, body='<p>본문&nbsp;내용</p><br><p>둘째 문단</p>', ministry='고용노동부'):
+    from xml.etree.ElementTree import fromstring
+    return fromstring(f'<NewsItem><NewsItemId>{news_id}</NewsItemId><ApproveDate>{approved}</ApproveDate>'
+                      f'<Title><![CDATA[{title}]]></Title><SubTitle1><![CDATA[부제<br>둘째 부제]]></SubTitle1>'
+                      f'<DataContents><![CDATA[{body}]]></DataContents><MinisterCode>{ministry}</MinisterCode></NewsItem>')
+
+
+class LatestPolicyTests(TestCase):
+    from datetime import datetime
+    setUp = ReviewFlowTests.setUp
+    POLICIES = [{'id': '2', 'title': '청년 월세 지원 확대', 'category': '국토교통부', 'hue': 10, 'text': TEXT,
+                 'approved': datetime(2026, 11, 6, 16, 33)},
+                {'id': '1', 'title': '청년 첫 취업지원제 신설', 'category': '고용노동부', 'hue': 200, 'text': '다른 본문',
+                 'approved': datetime(2026, 11, 5, 9, 0)}]
+
+    def test_walks_back_until_three_youth_titles_newest_first(self):
+        from datetime import date
+        from .agents.policy_suggest import newest_youth_policies
+        windows = [[news_item('1', '청년 일자리', '11/06/2026 10:00:00'), news_item('2', '단감 수출', '11/06/2026 11:00:00'),
+                    news_item('3', '청년 주거', '11/07/2026 09:00:00', ministry='국토교통부')],
+                   [], [news_item('4', '청년 연구', '10/30/2026 09:00:00'), news_item('5', '청년 금융', '10/31/2026 09:00:00')],
+                   [news_item('6', '청년 마지막', '10/27/2026 09:00:00')]]
+        with patch('server.agents.policy_suggest.news_window', side_effect=windows) as fetch:
+            policies = newest_youth_policies(today=date(2026, 11, 9))
+        self.assertEqual(fetch.call_count, 3)  # Stops once three are found.
+        self.assertEqual(fetch.call_args_list[1].args, (date(2026, 11, 4), date(2026, 11, 6)))
+        self.assertEqual([p['id'] for p in policies], ['3', '1', '5'])
+        self.assertEqual(policies[1]['category'], '고용노동부')
+        self.assertEqual(policies[1]['text'], '청년 일자리\n\n부제\n둘째 부제\n\n본문\xa0내용\n\n둘째 문단')
+        self.assertEqual(policies[1]['hue'], policies[2]['hue'])
+        self.assertNotEqual(policies[0]['hue'], policies[1]['hue'])
+
+    def test_home_offers_the_latest_policies_as_title_cards(self):
+        self.assertContains(self.client.get('/'), '살펴볼 문서가 없으신가요?')
+        self.assertContains(self.client.get('/'), 'href="?latest=1"')
+        self.assertNotContains(self.client.get('/'), 'data-policy-dialog')
+        with patch('server.views.newest_youth_policies', return_value=self.POLICIES):
+            page = self.client.get('/?latest=1')
+        self.assertContains(page, '<dialog class="glass policy-dialog" data-policy-dialog')
+        # Picking a card only opens its full text; starting needs the confirm button.
+        self.assertContains(page, '<button type="button" class="policy-card" data-show="2">')
+        self.assertContains(page, '<span class="policy-meta"><span class="policy-category" style="--hue:10">국토교통부</span><small>2026.11.06</small></span>')
+        self.assertContains(page, '<strong>청년 월세 지원 확대</strong>')
+        self.assertContains(page, 'data-policy-detail="1" data-busy=')
+        self.assertContains(page, '<div class="policy-text">다른 본문</div>')
+        self.assertContains(page, '이 정책으로 시작할까요?')
+        self.assertContains(page, 'data-back>')
+        self.assertContains(page, '<button class="primary" name="policy" value="2">')
+
+    def test_picked_policy_becomes_the_reviewed_document(self):
+        with patch('server.views.newest_youth_policies', return_value=self.POLICIES), \
+                patch('server.integrations.transport.call', return_value=response(ANALYSIS)):
+            result = self.client.post('/', {'policy': '2', 'text': '무시할 본문'})
+        run = ReviewRun.objects.latest('pk')
+        self.assertRedirects(result, f'/reviews/{run.pk}/', fetch_redirect_response=False)
+        self.assertEqual((run.title, run.pages), ('청년 월세 지원 확대', [TEXT]))
+
+    def test_unknown_policy_or_failed_fetch_shows_an_error(self):
+        with patch('server.views.newest_youth_policies', return_value=self.POLICIES):
+            page = self.client.post('/', {'policy': '99'})
+        self.assertContains(page, '선택한 정책을 다시 찾지 못했습니다')
+        self.assertFalse(ReviewRun.objects.exists())
+        with patch('server.views.newest_youth_policies', side_effect=OSError('down')):
+            page = self.client.get('/?latest=1')
+        self.assertContains(page, '최신 청년 정책을 불러오지 못했습니다')
+        with patch('server.views.newest_youth_policies', return_value=[]):
+            self.assertContains(self.client.get('/?latest=1'), '최근 한 달 동안 청년 정책 소식이 없어요.')

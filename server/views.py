@@ -12,6 +12,7 @@ from .agents.runner import analyze, advance, baseline, create_run
 from .agents.planning import phase_of, phases_for, role_count, steps_for
 from .agents.progress import progress, display_steps, feedback_letters, is_complete, issue_result, pipeline_text, plain_text, research_log
 from .agents.tools.documents import read_pages
+from .agents.policy_suggest import newest_youth_policies
 
 MODEL_ERRORS = (ValueError, KeyError, TypeError, OSError)
 CONFLICT = gettext_noop('다른 요청에서 단계가 진행되었습니다. 저장된 상태에서 다시 시작하세요.')
@@ -29,21 +30,31 @@ def home(request):
     if request.GET.get('lang') in ('ko', 'en'):
         request.session['language'] = request.GET['lang']
         return redirect('home')
-    error = ''
+    error, policies = '', None
     if request.method == 'POST':
         try:
             upload = request.FILES.get('document')
-            pages = read_pages(upload, request.POST.get('text', ''))
+            # A picked policy is fetched again on the server, so the run stores the source text, not a client copy.
+            picked = request.POST.get('policy')
+            policy = next((p for p in newest_youth_policies() if p['id'] == picked), None) if picked else None
+            if picked and not policy:
+                raise ValueError(_('선택한 정책을 다시 찾지 못했습니다. 목록을 새로 불러와 주세요.'))
+            pages = read_pages(None if policy else upload, policy['text'] if policy else request.POST.get('text', ''))
             if not request.session.session_key:
                 request.session.create()
-            title = Path(upload.name).stem.replace('_', ' ') if upload else ''
+            title = policy['title'] if policy else Path(upload.name).stem.replace('_', ' ') if upload else ''
             run = create_run(request.session.session_key, title, pages, request.session.get('language', 'ko'))
         except (ValueError, OSError) as exc:
             error = str(exc)
         else:
             attempt(run, analyze)
             return redirect('review', pk=run.pk)
-    return render(request, 'home.html', {'error': error})
+    elif request.GET.get('latest'):
+        try:
+            policies = newest_youth_policies()
+        except (ValueError, OSError):
+            error = _('최신 청년 정책을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.')
+    return render(request, 'home.html', {'error': error, 'policies': policies})
 
 def owned(request, pk):
     run = get_object_or_404(ReviewRun, pk=pk, owner=request.session.session_key or '')

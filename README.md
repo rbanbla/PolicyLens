@@ -36,3 +36,7 @@ cp .env.example .env
 `.venv/bin/python manage.py evaluate <doc_id>`는 문서 하나를 서비스와 같은 파이프라인으로 실행해 `data/reviewed/runs/`에 저장한다. 문서 발행일 이전의 정책 자료만 보며, `--no-sources`를 붙이면 서버 자료 없이 실행한다. `.venv/bin/python manage.py score`는 저장된 결과가 정답 초안의 쟁점을 언급하는지 키워드로 세며 사람 채점을 대신하지 않는다.
 
 제품 계약은 docs/PRODUCT_PLAN.md, 작업 규칙은 AGENTS.md, 화면 규칙은 docs/DESIGN.md, 검증 기록은 docs/IMPLEMENTATION_STATUS.md, 데이터 수집과 평가는 docs/DATA_PLAN.md를 따른다. `.venv/bin/python manage.py test server`로 회귀 검증을 실행한다.
+
+### DATA SOURCE
+본 프로젝트는 다음 공공기관에서 제공하는 정책 정보를 활용한다.
+ - 대한민국 정책브리핑 (https://www.korea.kr) - 정부 정책 발표, 보도자료 및 정책 관련 공식 문서 (최신 정책 문서 활용에 사용)

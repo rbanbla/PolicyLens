@@ -34,6 +34,33 @@
 })();
 
 (() => {
+  const dialog = document.querySelector('[data-policy-dialog]');
+  if (!dialog) return;
+  const list = dialog.querySelector('[data-policy-list]');
+  const details = dialog.querySelectorAll('[data-policy-detail]');
+  // An empty id goes back to the list; any other id shows that policy's full text.
+  function show(id) {
+    list.hidden = Boolean(id);
+    details.forEach(detail => {detail.hidden = detail.dataset.policyDetail !== id;});
+    dialog.scrollTop = 0;
+  }
+  dialog.addEventListener('click', event => {
+    const card = event.target.closest('[data-show]');
+    if (card) show(card.dataset.show);
+    if (event.target.closest('[data-back]')) show('');
+  });
+  details.forEach(form => form.addEventListener('submit', event => {
+    // Block a second start while the first one is analyzed; disabling the button would drop its value.
+    if (form.dataset.sent) return event.preventDefault();
+    form.dataset.sent = '1';
+    form.querySelector('[data-policy-status]').textContent = form.dataset.busy;
+  }));
+  // Closing returns to the plain home address, so a reload does not reopen the popup.
+  dialog.addEventListener('close', () => history.replaceState(null, '', location.pathname));
+  dialog.showModal();
+})();
+
+(() => {
   const toggle = document.querySelector('.lang-switch');
   if (!toggle) return;
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
