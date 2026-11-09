@@ -19,7 +19,7 @@ def create_run(owner, title, pages, language='ko'):
     return ReviewRun.objects.create(
         owner=owner, title=title.strip()[:200] or gettext('정책 검토'), pages=pages, language=language,
         model=model, provider=transport.identity(), structured_facts=True,
-        prompts={p.stem: p.read_text() for p in (settings.BASE_DIR / 'prompts').glob('*.md')})
+        prompts={p.stem: p.read_text(encoding='utf-8') for p in (settings.BASE_DIR / 'prompts').glob('*.md')})
 
 def ready_key(run):
     key, _ = transport.configuration()

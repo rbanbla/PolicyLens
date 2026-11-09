@@ -20,12 +20,12 @@ class Command(BaseCommand):
 
     def handle(self, *args, manifest, dry_run, **options):
         try:
-            records = [json.loads(line) for line in Path(manifest).read_text().splitlines() if line.strip()]
+            records = [json.loads(line) for line in Path(manifest).read_text(encoding='utf-8').splitlines() if line.strip()]
             if not records:
                 self.stdout.write('0건: 기존 사실을 변경하지 않았습니다.')
                 return
             registry = settings.BASE_DIR / 'data' / 'reviewed' / 'documents.jsonl'
-            gates = {d['doc_id']: d for line in registry.read_text().splitlines() if line.strip() for d in [json.loads(line)]}
+            gates = {d['doc_id']: d for line in registry.read_text(encoding='utf-8').splitlines() if line.strip() for d in [json.loads(line)]}
             with transaction.atomic():
                 seen, policies, versions = set(), {}, {}
                 for record in records:

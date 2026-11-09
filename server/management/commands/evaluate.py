@@ -26,17 +26,17 @@ class Command(BaseCommand):
         if no_sources and structured_facts:
             raise CommandError('--no-sources와 --structured-facts는 함께 사용할 수 없습니다.')
         data = settings.BASE_DIR / 'data'
-        docs = [json.loads(line) for line in (data / 'reviewed' / 'documents.jsonl').read_text().splitlines()]
+        docs = [json.loads(line) for line in (data / 'reviewed' / 'documents.jsonl').read_text(encoding='utf-8').splitlines()]
         doc = next((doc for doc in docs if doc['doc_id'] == doc_id), None)
         if doc is None or not doc['published_on']:
             raise CommandError(f'{doc_id}: documents.jsonl에 발행일이 있는 문서가 아닙니다.')
         if any(doc.get('gate', {}).get(k) != 'pass' for k in ('technical', 'rights')) or doc.get('external_send_ok') is not True:
             raise CommandError('기술·권리·외부 전송 게이트를 통과한 문서만 평가할 수 있습니다.')
-        pages = [page['text'] for page in json.loads((data / 'processed' / doc_id / 'pages.json').read_text())]
+        pages = [page['text'] for page in json.loads((data / 'processed' / doc_id / 'pages.json').read_text(encoding='utf-8'))]
         reference = None
         if reference_run:
             try:
-                reference = json.loads(Path(reference_run).read_text())
+                reference = json.loads(Path(reference_run).read_text(encoding='utf-8'))
                 if any(reference.get(k) != v for k, v in {'doc_id': doc_id, 'as_of': doc['published_on'], 'document_hash': digest(pages)}.items()):
                     raise ValueError('참조 실행의 문서·시점·해시가 다릅니다.')
                 validate_shape(reference['analysis'], ANALYSIS)
@@ -78,7 +78,7 @@ class Command(BaseCommand):
             path.write_text(json.dumps({'doc_id': doc_id, 'arm': arm, 'as_of': doc['published_on'], 'model': run.model,
                                         'structured_facts': structured_facts, 'document_hash': digest(pages), 'prompt_hash': prompt_hash,
                                         'provider_hash': provider_hash, 'reused_analysis_and_baseline': bool(reference), 'analysis': run.analysis, 'selected_role': run.selected_role, 'steps': run.steps,
-                                        'baseline': run.baseline, 'calls': run.calls}, ensure_ascii=False, indent=1))
+                                        'baseline': run.baseline, 'calls': run.calls}, ensure_ascii=False, indent=1), encoding='utf-8')
         finally:
             ReviewRun.objects.filter(pk=run.pk).delete()  # Results live in the file; the service database stays user data only.
         self.stdout.write(f'{path} 저장, 호출 {len(run.calls)}회')

@@ -17,10 +17,10 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         reviewed = settings.BASE_DIR / 'data' / 'reviewed'
-        gold = [json.loads(line) for line in (reviewed / 'annotations.jsonl').read_text().splitlines()]
+        gold = [json.loads(line) for line in (reviewed / 'annotations.jsonl').read_text(encoding='utf-8').splitlines()]
         for doc in gold:
             for path in sorted((reviewed / 'runs').glob(f'{doc["doc_id"]}-*.json')):
-                run = json.loads(path.read_text())
+                run = json.loads(path.read_text(encoding='utf-8'))
                 roles = json.dumps(run['analysis'], ensure_ascii=False)
                 people = [item['group'] for item in doc['stakeholders'] if re.search(item['match'], roles)]
                 for name, text in ((run['arm'], final_text(run)), ('단일 프롬프트', run['baseline'])):

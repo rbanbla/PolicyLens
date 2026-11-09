@@ -5,7 +5,7 @@ from server.models import Source
 
 
 def rows(path):
-    return [json.loads(line) for line in path.read_text().splitlines() if line.strip()] if path.exists() else []
+    return [json.loads(line) for line in path.read_text(encoding='utf-8').splitlines() if line.strip()] if path.exists() else []
 
 
 class Command(BaseCommand):
@@ -16,7 +16,7 @@ class Command(BaseCommand):
         loaded = {}
         for doc in rows(data / 'reviewed' / 'documents.jsonl'):
             if doc['gate']['technical'] == 'pass' and doc['gate']['rights'] == 'pass' and doc['external_send_ok']:
-                pages = [page['text'] for page in json.loads((data / 'processed' / doc['doc_id'] / 'pages.json').read_text())]
+                pages = [page['text'] for page in json.loads((data / 'processed' / doc['doc_id'] / 'pages.json').read_text(encoding='utf-8'))]
                 loaded[doc['doc_id']] = {'kind': doc['kind'], 'title': doc['title'], 'issuer': doc['issuer'], 'version': doc['version'],
                                          'source_url': doc['source_url'], 'published_on': doc['published_on'] or None, 'pages': pages}
         for opinion in rows(data / 'reviewed' / 'opinions.jsonl'):

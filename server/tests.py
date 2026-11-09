@@ -320,11 +320,11 @@ class ReviewFlowTests(TestCase):
 
     def test_prompts_ask_for_one_item_at_a_time(self):
         prompts = settings.BASE_DIR / 'prompts'
-        independent = (prompts / 'independent.md').read_text()
+        independent = (prompts / 'independent.md').read_text(encoding='utf-8')
         self.assertIn('더 다룰 쟁점이 없으면', independent)
         self.assertNotIn('최대 5개', independent)
-        self.assertIn('최대 3개', (prompts / 'issues.md').read_text())
-        self.assertIn('쟁점 하나만', (prompts / 'debate.md').read_text())
+        self.assertIn('최대 3개', (prompts / 'issues.md').read_text(encoding='utf-8'))
+        self.assertIn('쟁점 하나만', (prompts / 'debate.md').read_text(encoding='utf-8'))
 
     def test_debate_targets_exclude_own_statement_and_are_schema_enums(self):
         run = self.create_run()
@@ -1086,7 +1086,7 @@ class ReviewFlowTests(TestCase):
                                                                     'issues': [issue('A', '환수', '국토'), issue('B', '보류', '변경')]}))
             run = {'arm': 'sources', 'analysis': ANALYSIS, 'calls': [{}], 'baseline': '국토부에 선정되면 ' + '가' * 400 + ' 환수될 수 있다',
                    'steps': [{'result': {'items': [{'issue': '국토부 선정 시 환수'}]}}]}
-            (reviewed / 'runs' / 'doc-sources.json').write_text(json.dumps(run, ensure_ascii=False))
+            (reviewed / 'runs' / 'doc-sources.json').write_text(json.dumps(run, ensure_ascii=False), encoding='utf-8')
             out = StringIO()
             call_command('score', stdout=out)
         self.assertIn('doc\tsources\t1/2\tA', out.getvalue())
@@ -1109,10 +1109,10 @@ class ReviewFlowTests(TestCase):
                 return response(ANALYSIS) if 'roles' in payload['text']['format']['schema']['properties'] else response(result_for(payload))
             with patch('server.integrations.transport.call', side_effect=reply):
                 call_command('evaluate', 'doc', '--no-sources', stdout=StringIO())
-            saved = json.loads((base / 'reviewed' / 'runs' / 'doc-document.json').read_text())
+            saved = json.loads((base / 'reviewed' / 'runs' / 'doc-document.json').read_text(encoding='utf-8'))
             with patch('server.integrations.transport.call', side_effect=reply) as paired_model:
                 call_command('evaluate', 'doc', '--structured-facts', '--reference-run', str(base / 'reviewed' / 'runs' / 'doc-document.json'), stdout=StringIO())
-            paired = json.loads((base / 'reviewed' / 'runs' / 'doc-structured.json').read_text())
+            paired = json.loads((base / 'reviewed' / 'runs' / 'doc-structured.json').read_text(encoding='utf-8'))
             self.assertEqual(paired['analysis'], saved['analysis'])
             self.assertEqual(paired['baseline'], saved['baseline'])
             self.assertTrue(paired['reused_analysis_and_baseline'])
@@ -1179,7 +1179,7 @@ class LanguageTests(TestCase):
         self.client.get('/?lang=en')
         with patch('server.integrations.transport.call', return_value=response(EN_ANALYSIS)) as model:
             self.client.post('/', {'text': TEXT})
-        english = (settings.BASE_DIR / 'prompts' / 'lang_en.md').read_text().strip()
+        english = (settings.BASE_DIR / 'prompts' / 'lang_en.md').read_text(encoding='utf-8').strip()
         self.assertTrue(model.call_args.args[0]['instructions'].rstrip().endswith(english))
         run = ReviewRun.objects.latest('id')
         self.assertEqual(run.title, 'Policy review')
@@ -1263,12 +1263,12 @@ class LatestPolicyTests(TestCase):
 
     def test_walks_back_until_three_youth_titles_newest_first(self):
         from datetime import date
-        from .agents.policy_suggest import newest_youth_policies
+        from .integrations.policy_suggest import newest_youth_policies
         windows = [[news_item('1', '청년 일자리', '11/06/2026 10:00:00'), news_item('2', '단감 수출', '11/06/2026 11:00:00'),
                     news_item('3', '청년 주거', '11/07/2026 09:00:00', ministry='국토교통부')],
                    [], [news_item('4', '청년 연구', '10/30/2026 09:00:00'), news_item('5', '청년 금융', '10/31/2026 09:00:00')],
                    [news_item('6', '청년 마지막', '10/27/2026 09:00:00')]]
-        with patch('server.agents.policy_suggest.news_window', side_effect=windows) as fetch:
+        with patch('server.integrations.policy_suggest.news_window', side_effect=windows) as fetch:
             policies = newest_youth_policies(today=date(2026, 11, 9))
         self.assertEqual(fetch.call_count, 3)  # Stops once three are found.
         self.assertEqual(fetch.call_args_list[1].args, (date(2026, 11, 4), date(2026, 11, 6)))

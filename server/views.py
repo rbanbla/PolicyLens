@@ -12,7 +12,7 @@ from .agents.runner import analyze, advance, baseline, create_run
 from .agents.planning import phase_of, phases_for, role_count, steps_for
 from .agents.progress import progress, display_steps, feedback_letters, is_complete, issue_result, pipeline_text, plain_text, research_log
 from .agents.tools.documents import read_pages
-from .agents.policy_suggest import newest_youth_policies
+from .integrations.policy_suggest import newest_youth_policies
 
 MODEL_ERRORS = (ValueError, KeyError, TypeError, OSError)
 CONFLICT = gettext_noop('다른 요청에서 단계가 진행되었습니다. 저장된 상태에서 다시 시작하세요.')

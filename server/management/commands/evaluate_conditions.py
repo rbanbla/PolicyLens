@@ -12,7 +12,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, cases, **options):
         try:
-            rows = [json.loads(line) for line in Path(cases).read_text().splitlines() if line.strip()]
+            rows = [json.loads(line) for line in Path(cases).read_text(encoding='utf-8').splitlines() if line.strip()]
             if not rows:
                 raise ValueError('평가 사례가 없습니다.')
             passed, synthetic, ids = 0, 0, set()
