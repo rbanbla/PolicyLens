@@ -6,9 +6,11 @@ class ReviewRun(models.Model):
     title = models.CharField(max_length=200)
     pages = models.JSONField()
     analysis = models.JSONField(default=dict)
+    personas = models.JSONField(default=list)  # One Persona snapshot (or None) per role, in role order.
     selected_role = models.IntegerField(null=True)
     steps = models.JSONField(default=list)
     baseline = models.TextField(blank=True)
+    baseline_items = models.JSONField(default=list)  # The stored answer moved into the PolicyLens fields, for display only.
     evaluation = models.JSONField(default=dict)
     as_of = models.DateField(null=True)
     structured_facts = models.BooleanField(default=False)
@@ -31,6 +33,23 @@ class Source(models.Model):
     source_url = models.URLField(max_length=1000)
     published_on = models.DateField(null=True)
     pages = models.JSONField()
+
+
+class Persona(models.Model):
+    """A synthetic person from NVIDIA Nemotron-Personas-Korea (CC BY 4.0), given to a role so it speaks as someone."""
+    uuid = models.CharField(max_length=32, unique=True)
+    persona = models.TextField()
+    professional_persona = models.TextField()
+    family_persona = models.TextField()
+    sex = models.CharField(max_length=10)
+    age = models.PositiveSmallIntegerField()
+    marital_status = models.CharField(max_length=50)
+    family_type = models.CharField(max_length=100)
+    housing_type = models.CharField(max_length=100)
+    education_level = models.CharField(max_length=50)
+    occupation = models.CharField(max_length=200)
+    district = models.CharField(max_length=100)
+    province = models.CharField(max_length=50)
 
 
 class Policy(models.Model):

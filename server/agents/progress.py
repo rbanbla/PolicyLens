@@ -2,10 +2,10 @@ import re
 
 from django.utils.translation import gettext as _, gettext_noop
 
-from .memory.context import numbered_steps
-from .planning import phase_of, role_count, steps_for
+from .memory.context import all_issues, issue_of, numbered_steps, pending_issue
+from .planning import next_phase, next_stage, phase_of
 
-LABELS = {'independent': gettext_noop('입장 살펴보기'), 'issues': gettext_noop('쟁점 정리'), 'debate': gettext_noop('쟁점 토론'), 'final': gettext_noop('주의 조항 정리')}
+LABELS = {'independent': gettext_noop('입장 살펴보기'), 'issues': gettext_noop('쟁점 정리'), 'debate': gettext_noop('쟁점 토론'), 'close': gettext_noop('토론 마무리'), 'final': gettext_noop('주의 조항 정리')}
 
 
 def step_label(run, stage, role):
@@ -23,35 +23,76 @@ def issue_result(steps):
     return next((step['result'] for step in steps if step['stage'] == 'issues'), {})
 
 
+def issue_cards(run, steps):
+    # Page 3: each issue with every role's one-line opening position under it.
+    result = issue_result(steps)
+    roles = run.analysis.get('roles', [])
+    for item in result.get('items', []):
+        for position in item.get('positions', []):
+            position.update(name=roles[position['role']]['name'], is_self=position['role'] == run.selected_role)
+    return result
+
+
+def numbered_issues(steps):
+    # Issues picked up front come first, then the moderator's additions, numbered in that order.
+    return {issue['id']: {**issue, 'number': number} for number, issue in enumerate(all_issues(steps), 1)}
+
+
+def new_issues(steps):
+    issues = numbered_issues(steps)
+    return [issues[issue['id']] for step in steps for issue in step.get('moderator', {}).get('new_issues', [])]
+
+
+def current_issue(run):
+    steps = numbered_steps(run.steps)
+    issues = numbered_issues(steps)
+    if not issues:
+        return None
+    if steps[-1]['stage'] in ('close', 'final'):
+        return {'ended': True}
+    pending, _ = pending_issue(steps)
+    if pending:
+        return issues[pending['id']]
+    debate = [step for step in steps if step['stage'] == 'debate' and 'moderator' in step]
+    return issues[issue_of(debate[-1])] if debate else None
+
+
 def is_complete(run):
-    return len(run.steps) == len(steps_for(role_count(run)))
+    return bool(run.steps) and run.steps[-1]['stage'] == 'final'
 
 
 def display_steps(run):
-    count = role_count(run)
     steps = numbered_steps(run.steps)
+    issues = numbered_issues(steps)
+    opened, previous = set(), None
     for index, step in enumerate(steps):
         role, stage = step['role'], step['stage']
+        issue = issue_of(step) if stage == 'debate' and 'moderator' in step else None
         step.update(label=step_label(run, stage, role), number=index + 1,
                     speaker=speaker_name(run, role),
                     is_self=role is not None and role == run.selected_role,
-                    phase=phase_of(index, count))
+                    opens=issue is not None and issue not in opened,  # The first statement on an issue states it; later ones answer.
+                    issue=issues.get(issue), issue_changed=issue is not None and issue != previous,
+                    phase=phase_of(stage))
+        opened.add(issue)
+        previous = issue or previous
         for item in step['result']['items']:
-            item['references'] = [{'id': target, 'page': phase_of(int(target.split('-')[0][1:]) - 1, count)}
+            item['references'] = [{'id': target, 'page': phase_of(steps[int(target.split('-')[0][1:]) - 1]['stage'])}
                                   for target in item.get('target_ids', [])]
     return steps
 
 
 def progress(run):
-    plan = steps_for(role_count(run), run.selected_role)
-    cursor = len(run.steps)
-    complete = cursor == len(plan)
+    stage = next_stage(run.steps)
     next_label, next_name, next_role = '', '', None
-    if not complete and run.selected_role is not None:
-        next_stage, next_role = plan[cursor]
-        next_label = step_label(run, next_stage, next_role)
+    if stage and run.selected_role is not None:
+        # Only an issue's opening speaker is known ahead; after that the moderator decides inside the step.
+        issue, said = pending_issue(numbered_steps(run.steps))
+        if stage == 'debate' and issue and not said:
+            next_role = run.selected_role
+        next_label = step_label(run, stage, next_role)
         next_name = speaker_name(run, next_role)
-    return {'cursor': cursor, 'complete': complete,
+    return {'cursor': len(run.steps), 'complete': is_complete(run), 'next_phase': next_phase(run.steps),
             'next_label': next_label, 'next_name': next_name,
             'next_is_self': next_role is not None and next_role == run.selected_role,
             'error': run.error}
@@ -93,13 +134,35 @@ def plain_text(text):
     return re.sub(r'\n{3,}', '\n\n', text)
 
 
-def pipeline_text(run):
-    # Plain text, like the baseline, so card styling does not reveal which result is which.
+def caution_text(items):
+    # Both sides of the comparison use these lines, so the layout does not reveal which result is which. Empty fields are left out.
+    fields = [(_('영향: %(text)s'), 'impact'), (_('내 해석: %(text)s'), 'my_reading'), (None, 'other_reading'), (_('확인할 것: %(text)s'), 'check'),
+              (_('물어볼 질문: %(text)s'), 'question'), (_('불확실한 부분: %(text)s'), 'uncertainty')]
     lines = []
-    for number, item in enumerate(run.steps[-1]['result']['items'], 1):
-        lines += [f'{number}. {item["issue"]}', item['reason'], _('원문(%(page)s쪽): %(quote)s') % item['citation'],
-                  _('영향: %(text)s') % {'text': item['impact']}, _('다른 입장: %(text)s') % {'text': item['others_view']},
-                  _('확인할 것: %(text)s') % {'text': item['check']}, _('물어볼 질문: %(text)s') % {'text': item['question']},
-                  _('불확실한 부분: %(text)s') % {'text': item['uncertainty']}]
+    for number, item in enumerate(items, 1):
+        page, quote = item['citation']['page'], item['citation']['quote']
+        lines.append(f'{number}. {item["issue"]}')
+        if item['reason'].strip():
+            lines.append(item['reason'])
+        if quote.strip():
+            lines.append((_('원문(%(page)s쪽): %(quote)s') if page else _('원문: %(quote)s')) % {'page': page, 'quote': quote})
+        for label, key in fields:
+            if key == 'my_reading' and item.get('phrase', '').strip():  # The disputed words come right before the readings.
+                lines.append(_('갈리는 표현: "%(text)s"') % {'text': item['phrase']})
+            if item.get(key, '').strip():
+                # The other reading carries the name of the role who reads it that way.
+                values = {'text': item[key], 'name': item.get('other_role', '').strip() or _('상대')}
+                lines.append((label or _('%(name)s의 해석: %(text)s')) % values)
         lines += source_lines(item) + ['']
     return '\n'.join(lines)
+
+
+def pipeline_text(run):
+    return caution_text(run.steps[-1]['result']['items'])
+
+
+def baseline_text(run):
+    # Runs compared before the answer was copied into fields still show the answer itself.
+    if not run.baseline_items:
+        return plain_text(run.baseline)
+    return plain_text(caution_text([{**item, 'citation': {'page': item['page'], 'quote': item['quote']}} for item in run.baseline_items]))

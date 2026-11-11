@@ -9,8 +9,8 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST, require_GET
 from .models import ReviewRun
 from .agents.runner import analyze, advance, baseline, create_run
-from .agents.planning import phase_of, phases_for, role_count, steps_for
-from .agents.progress import progress, display_steps, feedback_letters, is_complete, issue_result, pipeline_text, plain_text, research_log
+from .agents.planning import ORDER, next_phase, role_count
+from .agents.progress import progress, baseline_text, current_issue, display_steps, feedback_letters, is_complete, issue_cards, new_issues, pipeline_text, research_log
 from .agents.tools.documents import read_pages
 from .integrations.policy_suggest import newest_youth_policies
 
@@ -66,21 +66,19 @@ def review(request, pk):
     return review_page(request, run)
 
 def review_page(request, run, error='', status=200):
-    count = role_count(run)
-    cursor = len(run.steps)
-    default_page = phase_of(min(cursor, len(steps_for(count)) - 1), count)
-    ranges = {'summary': (0, 0), **phases_for(count)}
+    current = next_phase(run.steps)
+    default_page = current or 'proposal'
     page = request.GET.get('page', default_page)
-    if page not in ranges:
+    if page not in ('summary',) + ORDER[:-1]:
         page = default_page
     if run.selected_role is None:
         page = 'summary'
     steps = display_steps(run)
-    phase_start, phase_end = ranges[page]
+    reached = ORDER.index(current)
     context = {
-        'phase': page, 'phase_start': phase_start, 'phase_end': phase_end,
-        'phase_done': cursor >= phase_end, 'phase_ready': cursor >= phase_start,
-        'display_steps': steps, 'issues': issue_result(steps), 'letters': feedback_letters(run), 'research': research_log(run),
+        'phase': page,
+        'phase_done': page == 'summary' or ORDER.index(page) < reached, 'phase_ready': page == 'summary' or ORDER.index(page) <= reached,
+        'display_steps': steps, 'issues': issue_cards(run, steps), 'current': current_issue(run), 'new_issues': new_issues(steps), 'letters': feedback_letters(run), 'research': research_log(run),
         'form_error': error, 'run': run, 'complete': is_complete(run),
         'selected': run.analysis['roles'][run.selected_role]['name'] if run.selected_role is not None else '',
     }
@@ -102,8 +100,11 @@ def step_response(request, run, status=200, message=''):
     if request.get_preferred_type(['text/html', 'application/json']) == 'application/json':
         data = progress(run)
         data['message'] = message
-        data['steps_html'] = render_to_string('review_steps.html', {'display_steps': display_steps(run), 'all_steps': True})
-        data['issues_html'] = render_to_string('issue_cards.html', {'issues': issue_result(run.steps)})
+        steps = display_steps(run)
+        data['steps_html'] = render_to_string('review_steps.html', {'display_steps': steps, 'all_steps': True})
+        data['issues_html'] = render_to_string('issue_cards.html', {'issues': issue_cards(run, steps)})
+        data['current_issue_html'] = render_to_string('current_issue.html', {'current': current_issue(run)})
+        data['new_issues_html'] = render_to_string('new_issues.html', {'new_issues': new_issues(steps)})
         response = JsonResponse(data, status=status)
         response['Cache-Control'] = 'no-store'
         return response
@@ -162,7 +163,7 @@ def compare_page(request, run, error='', status=200):
     if run.baseline:
         label = run.evaluation['pipeline']
         results = sorted([{'label': label, 'source': 'PolicyLens', 'text': pipeline_text(run)},
-                          {'label': 'B' if label == 'A' else 'A', 'source': _('단일 프롬프트'), 'text': plain_text(run.baseline)}],
+                          {'label': 'B' if label == 'A' else 'A', 'source': _('단일 프롬프트'), 'text': baseline_text(run)}],
                          key=lambda result: result['label'])
     return render(request, 'compare.html', {'run': run, 'results': results, 'form_error': error,
                   'rated': 'preferred' in run.evaluation}, status=status)

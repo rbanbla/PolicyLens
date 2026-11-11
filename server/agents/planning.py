@@ -1,37 +1,28 @@
-# One turn is one model call that makes one item. A role speaks in rounds, so the chat takes turns instead of flooding.
-TURNS = 3
+# The server fixes the phases (issues, debate, close, final) and the order of issues; inside an issue the moderator picks who speaks next.
+MAX_ISSUES = 3  # Issues picked before the debate.
+MAX_NEW_ISSUES = 2  # Issues the moderator may add from the debate.
+PER_ISSUE = 3  # Statements on each issue; the user's role always makes the first.
+
+NEXT = {None: 'issues', 'independent': None, 'issues': 'debate', 'debate': 'debate', 'close': 'final', 'final': None}  # independent: older runs cannot continue.
+PHASES = {'independent': 'discussion', 'issues': 'discussion', 'debate': 'review', 'close': 'review', 'final': 'proposal'}  # independent: runs made before the moderator.
+ORDER = ('discussion', 'review', 'proposal', None)
 
 
-def steps_for(count, first=None):
-    roles = range(count)
-    speakers = sorted(roles, key=lambda role: role != first)  # The chosen role opens every issue and the others answer it.
-    return ([('independent', role) for _ in range(TURNS) for role in roles] + [('issues', None)]
-            + [('debate', role) for _ in range(TURNS) for role in speakers] + [('final', None)])
+def next_stage(steps):
+    return NEXT[steps[-1]['stage'] if steps else None]
 
 
-def phases_for(count):
-    turns = TURNS * count
-    return {'discussion': (0, turns + 1), 'review': (turns + 1, 2 * turns + 1), 'proposal': (2 * turns + 1, 2 * turns + 2)}
+def next_phase(steps):
+    stage = next_stage(steps)
+    return PHASES[stage] if stage else None
 
 
-def phase_of(index, count):
-    return next(name for name, (start, end) in phases_for(count).items() if start <= index < end)
+def phase_of(stage):
+    return PHASES[stage]
 
 
-def turn_of(index, count):
-    # The round of an independent turn, or the number of the issue a debate turn answers.
-    return index // count if index < TURNS * count else (index - TURNS * count - 1) // count
-
-
-def is_skipped(steps, index, count):
-    # A turn with nothing left to do is recorded without a model call. Only earlier steps decide.
-    stage, role = steps_for(count)[index]
-    if stage == 'independent':
-        return any(step['stage'] == 'independent' and step['role'] == role and not step['result']['items'] for step in steps[:index])
-    if stage == 'debate':
-        issues = next(step for step in steps[:index] if step['stage'] == 'issues')
-        return turn_of(index, count) >= len(issues['result']['items'])
-    return False
+def last_speaker(steps):
+    return next((step['role'] for step in reversed(steps) if step['stage'] == 'debate'), None)
 
 
 def role_count(run):

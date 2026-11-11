@@ -26,10 +26,9 @@
   const welcome = document.getElementById('chat-welcome');
   const phase = form.dataset.phase;
   const text = form.dataset;
-  const end = Number(form.dataset.end);
   let running = false;
   const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
-  const messageGap = phase === 'discussion' ? 3000 : 200;  // PolicyLens posts its issues in one call, so 3 seconds keeps them readable one by one.
+  const messageGap = 200;
 
   function nearBottom() {
     return scroll && scroll.scrollHeight - scroll.scrollTop - scroll.clientHeight < 130;
@@ -68,6 +67,13 @@
     }
     const issues = document.getElementById('issue-cards');
     if (issues && state.issues_html) issues.innerHTML = state.issues_html;
+    const current = document.getElementById('current-issue');
+    if (current) current.innerHTML = state.current_issue_html;
+    const added = document.getElementById('new-issues');
+    if (added) {
+      added.innerHTML = state.new_issues_html;
+      document.getElementById('new-issues-section').hidden = !state.new_issues_html.trim();
+    }
   }
   async function request(url, options = {}, animate = false) {
     const response = await fetch(url, {
@@ -93,7 +99,7 @@
     error.textContent = '';
     try {
       let state = await request(form.dataset.statusUrl);
-      while (state.cursor < end) {
+      while (state.next_phase === phase) {
         showTyping(state);
         state = await request(form.action, {method: 'POST', body: new FormData(form)}, true);
       }

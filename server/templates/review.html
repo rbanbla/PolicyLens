@@ -14,7 +14,7 @@
 <div class="page-intro compact">
 <span class="eyebrow">{% if phase == 'discussion' %}MANY PERSPECTIVES{% elif phase == 'review' %}THE DEBATE{% else %}WATCH THESE CLAUSES{% endif %}</span>
 <h1>{% if phase == 'discussion' %}{% trans '같은 문서, 서로 다른 입장.' %}{% elif phase == 'review' %}{% trans '이 쟁점, 입장마다 어떻게 다를까요?' %}{% else %}{% trans '내가 주의할 조항.' %}{% endif %}</h1>
-<p class="lead">{% if phase == 'discussion' %}{% trans '내 입장과 부딪히는 부분을 대화에서 발견해 보세요.' %}{% elif phase == 'review' %}{% trans '쟁점마다 서로의 주장에 답하며 차이를 드러내요.' %}{% else %}{% trans '무엇을 조심하고 무엇을 확인할지 정리했어요.' %}{% endif %}</p>
+<p class="lead">{% if phase == 'discussion' %}{% trans '쟁점마다 역할별 입장을 한 줄로 비교해 보세요.' %}{% elif phase == 'review' %}{% trans '쟁점마다 서로의 주장에 답하며 차이를 드러내요.' %}{% else %}{% trans '무엇을 조심하고 무엇을 확인할지 정리했어요.' %}{% endif %}</p>
 </div>
 <div class="review-layout">
 <aside class="document-sidebar glass">
@@ -29,16 +29,38 @@
 <span>{{ role.name }}</span>{% if run.selected_role == forloop.counter0 %}<span class="self-tag">{% trans '나' %}</span>{% endif %}</div>{% endfor %}<p class="sidebar-note">{% blocktranslate trimmed %}AI가 각 역할의 관점을 검토합니다.<br>원문 근거도 함께 확인해 주세요.{% endblocktranslate %}</p>
 </aside>
 <div>
-{% if phase != 'proposal' %}<section class="chat-room glass">
+{% if phase == 'discussion' %}<section class="issues-section discussion-issues">
+<div class="section-heading">
+<div>
+<span class="eyebrow">WHAT MATTERS TO YOU</span>
+<h2>{% trans '문서에서 찾은 쟁점' %}</h2>
+</div>
+<span class="subtle">{% trans '토론할 쟁점' %}</span>
+</div>
+<div id="issue-cards" class="issue-grid">{% include 'issue_cards.html' %}</div>
+<div id="typing-message" class="final-wait" hidden>
+<span class="typing-dots">
+<i>
+</i>
+<i>
+</i>
+<i>
+</i>
+</span>
+<p>{% trans '쟁점과 역할별 입장을 정리하고 있어요.' %}</p>
+</div>
+</section>
+{% elif phase == 'review' %}<section class="chat-room glass">
 <div class="chat-header">
 <div>
 <span class="chat-status-dot">
 </span>
-<strong>{% if phase == 'discussion' %}{% trans '입장 나누기' %}{% else %}{% trans '쟁점 토론' %}{% endif %}</strong>
+<strong>{% trans '쟁점 토론' %}</strong>
 <span class="subtle">{% blocktranslate count counter=run.analysis.roles|length %}AI · {{ counter }}개의 관점{% plural %}AI · {{ counter }}개의 관점{% endblocktranslate %}</span>
 </div>
 <span class="chat-symbol" aria-hidden="true">···</span>
 </div>
+<div class="current-issue" id="current-issue" role="status">{% include 'current_issue.html' %}</div>
 <div class="chat-scroll" id="chat-scroll">
 <div id="review-steps" class="chat-flow" role="log" aria-live="polite" aria-relevant="additions">{% include 'review_steps.html' %}</div>
 <div class="chat-welcome" id="chat-welcome" {% if run.steps %}hidden{% endif %}>
@@ -85,7 +107,7 @@
 <div class="run-controls">
 <p id="review-progress" class="subtle" role="status">{% if phase_done %}{% trans '이 단계의 검토가 끝났어요.' %}{% elif not phase_ready %}{% trans '앞선 검토가 끝나면 이어서 살펴볼 수 있어요.' %}{% else %}{% trans '준비되면 이어서 살펴볼게요.' %}{% endif %}</p>
 <p id="review-error" class="error" role="alert">{{ run.error }}</p>
-{% if not phase_done and phase_ready %}<form id="review-runner" method="post" action="{% url 'step' run.pk %}" data-status-url="{% url 'status' run.pk %}" data-phase="{{ phase }}" data-end="{{ phase_end }}" data-typing="{% trans '{name}의 입장을 살펴보고 있어요.' %}" data-done="{% trans '이 단계의 검토가 끝났어요.' %}" data-unreachable="{% trans '연결 상태를 확인한 후 다시 이어서 살펴봐 주세요.' %}" data-paused="{% trans '잠시 멈췄어요. 다시 이어서 살펴볼 수 있어요.' %}" data-offline="{% trans '연결이 잠시 끊겼어요. 다시 시작하면 저장된 입장부터 이어집니다.' %}" data-saved="{% trans '잠시 멈췄어요. 나눈 입장은 저장되어 있어요.' %}" data-retry="{% trans '이어서 다시 살펴보기' %}">{% csrf_token %}<input type="hidden" name="cursor" value="{{ run.steps|length }}">
+{% if not phase_done and phase_ready %}<form id="review-runner" method="post" action="{% url 'step' run.pk %}" data-status-url="{% url 'status' run.pk %}" data-phase="{{ phase }}" data-typing="{% trans '{name}의 입장을 살펴보고 있어요.' %}" data-done="{% trans '이 단계의 검토가 끝났어요.' %}" data-unreachable="{% trans '연결 상태를 확인한 후 다시 이어서 살펴봐 주세요.' %}" data-paused="{% trans '잠시 멈췄어요. 다시 이어서 살펴볼 수 있어요.' %}" data-offline="{% trans '연결이 잠시 끊겼어요. 다시 시작하면 저장된 입장부터 이어집니다.' %}" data-saved="{% trans '잠시 멈췄어요. 나눈 입장은 저장되어 있어요.' %}" data-retry="{% trans '이어서 다시 살펴보기' %}">{% csrf_token %}<input type="hidden" name="cursor" value="{{ run.steps|length }}">
 <button class="secondary">{% if run.error %}{% trans '이어서 다시 살펴보기' %}{% else %}{% trans '검토 이어가기' %}{% endif %}</button>
 </form>{% endif %}
 {% if not phase_ready %}<a class="secondary" href="?page={% if phase == 'review' %}discussion{% else %}review{% endif %}">{% trans '앞선 검토로 돌아가기' %}</a>{% endif %}
@@ -93,15 +115,15 @@
 <p>{% trans '버튼을 누를 때마다 한 입장씩 확인할 수 있어요.' %}</p>
 </noscript>
 </div>
-{% if phase == 'discussion' %}<section class="issues-section">
+{% if phase == 'review' %}<section class="issues-section" id="new-issues-section" {% if not new_issues %}hidden{% endif %}>
 <div class="section-heading">
 <div>
-<span class="eyebrow">WHAT MATTERS TO YOU</span>
-<h2>{% trans '대화에서 찾은 쟁점' %}</h2>
+<span class="eyebrow">FROM THE MODERATOR</span>
+<h2>{% trans '사회자가 정리한 새 쟁점' %}</h2>
 </div>
-<span class="subtle">{% trans '토론할 쟁점' %}</span>
+<span class="subtle">{% trans '토론에서 새로 부딪힌 조항' %}</span>
 </div>
-<div id="issue-cards" class="issue-grid">{% include 'issue_cards.html' %}</div>
+<div id="new-issues" class="issue-grid">{% include 'new_issues.html' %}</div>
 </section>{% endif %}
 <div class="page-action" id="phase-next" {% if not phase_done %}hidden{% endif %}>{% if phase == 'discussion' %}<span class="subtle">{% trans '쟁점마다 서로의 입장을 맞대어 봐요.' %}</span>
 <a class="primary" href="?page=review&start=1">{% trans '쟁점 토론 보기' %} <span>→</span>

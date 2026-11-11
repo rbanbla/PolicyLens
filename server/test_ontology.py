@@ -280,18 +280,21 @@ class RunIntegrationTests(TestCase):
         with patch('server.agents.runner.transport.configuration', return_value=('key', 'model')):
             run = create_run('owner', 'title', [TEXT])
             run.analysis, run.selected_role = deepcopy(ANALYSIS), 0
+            issues = {'stage': 'issues', 'role': None, 'result': {'summary': 's', 'items': [{**ITEMS['issues'], 'citation': CITATION}], 'excluded': []}}
+            run.steps = [issues]
             run.save()
             returned = {'fact_id': 'f', 'revision': 'rev', 'value': {'text': '검수한 내용'}}
-            def generate(run, stage, data, schema, check, research, search_first):
+            def generate(run, stage, data, schema, check, research=None, search_first=False, role=None):
                 self.assertTrue(research['structured_facts'])
                 self.assertEqual(research['facts'], [])
                 research['facts'].append(returned)
-                return {'summary': 's', 'items': [{**ITEMS['independent'], 'citation': CITATION}]}
+                return {'summary': 's', 'items': [{**ITEMS[stage], 'citation': CITATION, 'target_ids': ['s1-i1']}]}
             with patch('server.agents.runner.generate', side_effect=generate):
-                advance(run)
-                advance(run)
-        self.assertEqual(run.steps[0].get('policy_facts'), [returned])
+                advance(run)  # The opening debate statement.
+                run.steps = run.steps + [{'stage': 'close', 'role': None, 'result': {'summary': 's', 'items': []}}]
+                advance(run)  # The final step.
         self.assertEqual(run.steps[1].get('policy_facts'), [returned])
+        self.assertEqual(run.steps[3].get('policy_facts'), [returned])
 
     def test_evaluation_rejects_conflicting_arms_before_api(self):
         from django.core.management import call_command

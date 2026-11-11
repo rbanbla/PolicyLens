@@ -1,0 +1,19 @@
+{% load i18n %}{% for item in new_issues %}<article class="issue-card" id="{{ item.id }}">
+<div class="section-heading">
+<span class="issue-number">{% blocktranslate with number=item.number|stringformat:'02d' %}쟁점 {{ number }}{% endblocktranslate %}</span>
+<span class="tag">{% trans item.priority %}</span>
+</div>
+<h3>{{ item.issue }}</h3>
+<p>{{ item.reason }}</p>
+<div class="issue-direction">
+<span>{% trans '입장 차이' %}</span>
+<p>{{ item.contested }}</p>
+</div>
+<details class="source">
+<summary>{% trans '쟁점 유형과 근거' %}</summary>
+<p>{% trans item.signal %}</p>
+<blockquote>{{ item.citation.quote }}<small>{% blocktranslate with page=item.citation.page %}{{ page }}쪽{% endblocktranslate %}</small>
+</blockquote>
+<p>{{ item.question }}</p>
+</details>
+</article>{% endfor %}

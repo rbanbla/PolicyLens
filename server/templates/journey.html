@@ -10,7 +10,7 @@
 </a>
 <a href="{% url 'review' run.pk %}?page=discussion" {% if phase == 'discussion' %}aria-current="page"{% endif %}>
 <b>3</b>
-<span>{% trans '입장 나누기' %}</span>
+<span>{% trans '쟁점 찾기' %}</span>
 </a>
 <a href="{% url 'review' run.pk %}?page=review" {% if phase == 'review' %}aria-current="page"{% endif %}>
 <b>4</b>
@@ -24,7 +24,7 @@
 <span>
 <b>2</b>{% trans '핵심 요약' %}</span>
 <span>
-<b>3</b>{% trans '입장 나누기' %}</span>
+<b>3</b>{% trans '쟁점 찾기' %}</span>
 <span>
 <b>4</b>{% trans '쟁점 토론' %}</span>
 <span>

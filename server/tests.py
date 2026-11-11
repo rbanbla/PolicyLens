@@ -10,14 +10,16 @@ from django.conf import settings
 from django.core.management import call_command
 from django.test import SimpleTestCase, TestCase, Client
 from django.utils import translation
-from .models import ReviewRun, Source
-from .agents.planning import is_skipped, phases_for, steps_for, turn_of
-from .agents.progress import feedback_letters, plain_text
+from .models import Persona, ReviewRun, Source
+from .agents.memory.context import assigned_claim
+from .agents.planning import next_phase, next_stage
+from .agents.progress import feedback_letters, pipeline_text, plain_text
 from .agents.schemas import report
 from .agents.runner import MAX_TOOL_ROUNDS
 from .agents.tools.documents import align_citations, check_quote
+from .agents.tools.personas import match_persona
 from .agents.tools.sources import new_research, read_source, search_sources
-from .agents.validation import validate_report
+from .agents.validation import validate_moderator, validate_report
 from .integrations import transport
 
 TEXT = '임차인은 월세를 지원받는다. 임대인은 임대차 신고에 협조한다. 지자체는 지원 대상을 따로 정할 수 있다.'
@@ -27,18 +29,25 @@ CITATION = {'page': 1, 'quote': '임차인은 월세를 지원받는다.'}
 def role(name, basis='explicit'):
     return {'name': name, 'basis': basis, 'doc_role': '문서상 위치', 'gains': '얻는 것', 'burdens': '지는 부담',
             'goal': '지키려는 것', 'red_line': '양보하기 어려운 것',
-            'impact': '정책의 의미', 'why_distinct': '이해가 다름', 'citation': CITATION}
+            'impact': '정책의 의미', 'why_distinct': '이해가 다름', 'citation': CITATION,
+            'persona_hint': {'age_min': 19, 'age_max': 39, 'keywords': ['월세']}}
 
 
 ANALYSIS = {'document_type': '지원 공고', 'policy_field': '청년 주거', 'purpose': '월세 지원', 'applies_to': '청년',
             'summary': '월세 지원 정책', 'status': 'ok', 'selection_note': '수혜자·부담자·집행자',
             'other_stakeholders': [], 'roles': [role('임차인'), role('임대인', 'implied'), role('지자체')]}
 TWO_ROLES = dict(ANALYSIS, roles=ANALYSIS['roles'][:2])
+ISSUE = {'issue': '지원 대상 기준', 'signal': '재량 집중', 'priority': '높음', 'reason': '결정권 집중', 'contested': '입장 차이 내용', 'question': '기준은 무엇인가?'}
+
+
+def positions(count):
+    return [{'role': index, 'stance': f'역할 {index}의 한 줄 입장'} for index in range(count)]
+
+
 ITEMS = {
-    'independent': {'issue': '지원 대상', 'signal': '재량 집중', 'stance': '불리', 'reason': '기준이 없다', 'request': '기준 공개', 'sources': []},
-    'issues': {'issue': '지원 대상 기준', 'signal': '재량 집중', 'priority': '높음', 'reason': '결정권 집중', 'contested': '입장 차이 내용', 'question': '기준은 무엇인가?'},
+    'issues': {**ISSUE, 'positions': positions(3)},
     'debate': {'issue': '지원 대상 기준', 'claim_summary': '상대 주장 요약', 'response': '반박', 'reason': '상대 주장 요약과 사정', 'request': '기준 공개 요청', 'condition': '기준 공개 시 수용', 'sources': []},
-    'final': {'issue': '지원 대상 기준', 'signal': '재량 집중', 'priority': '높음', 'reason': '결정 전 확인 필요', 'impact': '지원에서 빠질 수 있다', 'others_view': '지자체는 재량이 필요하다고 본다', 'check': '공고문 확인', 'question': '기준은 언제 공개되나?', 'uncertainty': '세부 기준이 문서에 없다', 'sources': []},
+    'final': {'issue': '지원 대상 기준', 'signal': '재량 집중', 'priority': '높음', 'reason': '결정 전 확인 필요', 'impact': '지원에서 빠질 수 있다', 'phrase': '월세를 지원받는다', 'my_reading': '기준이 없으면 탈락할 수 있다고 읽는다', 'other_role': '지자체', 'other_reading': '지자체는 재량으로 대상을 정할 수 있다고 읽는다', 'check': '공고문 확인', 'question': '기준은 언제 공개되나?', 'uncertainty': '세부 기준이 문서에 없다', 'sources': []},
 }
 
 
@@ -48,50 +57,95 @@ def response(data):
 
 def stage_of(payload):
     top = payload['text']['format']['schema']['properties']
+    if 'speaker' in top:
+        return 'moderator'
     fields = top['items']['items']['properties']
-    return 'issues' if 'excluded' in top else next(stage for stage, marker in [('independent', 'stance'), ('debate', 'response'), ('final', 'impact')] if marker in fields)
+    if 'quote' in fields:
+        return 'format'
+    return 'issues' if 'excluded' in top else 'debate' if 'response' in fields else 'final'
 
 
-def result_for(payload):
+def moderation(data):
+    # A fake moderator: the roles take turns after whoever spoke last.
+    speaker = (data['last_speaker'] + 1) % len(data['roles'])
+    return {'summary': '진행 중', 'speaker': speaker, 'question': '앞 발언에 답해 주세요.', 'new_issues': []}
+
+
+def result_for(payload, issues=1):
     stage = stage_of(payload)
+    data = json.loads(payload['input'])
+    if stage == 'moderator':
+        return moderation(data)
+    if stage == 'format':
+        return {'items': [formatted(data['baseline_answer'])]}
     item = {**ITEMS[stage], 'citation': CITATION}
-    if stage != 'independent':
-        item['target_ids'] = json.loads(payload['input'])['allowed_target_ids']
-    result = {'summary': '검토 완료', 'items': [item]}
-    if stage == 'issues':
-        result['excluded'] = ['시행일은 자명해 제외했다.']
-    return result
+    if stage == 'final':
+        item['other_role'] = payload['text']['format']['schema']['properties']['items']['items']['properties']['other_role']['enum'][-1]
+    if stage != 'issues':
+        item['target_ids'] = data['allowed_target_ids']
+        return {'summary': '검토 완료', 'items': [item]}
+    items = [{**item, 'issue': item['issue'] if n == 1 else f'다른 쟁점 {n}', 'positions': positions(len(data['roles']))} for n in range(1, issues + 1)]
+    return {'summary': '검토 완료', 'items': items, 'excluded': ['시행일은 자명해 제외했다.']}
+
+
+def formatted(answer):
+    # A single-prompt answer moved into the caution fields; empty fields are what the answer did not say.
+    return {'issue': answer, 'reason': '답변의 이유', 'page': 0, 'quote': '임차인은 월세를 지원받는다.', 'impact': '답변의 영향',
+            'phrase': '', 'my_reading': '', 'other_role': '', 'other_reading': '', 'check': '', 'question': '', 'uncertainty': ''}
+
+
+def two_issues(payload, key):
+    return response(result_for(payload, issues=2))
 
 
 def report_response(payload, key):
     return response(result_for(payload))
 
 
+def persona(uuid, age, occupation, **extra):
+    fields = {'persona': f'김하늘 씨는 {occupation}로 일하는 사람입니다.', 'professional_persona': '하늘 씨는 손이 빠릅니다.', 'family_persona': '김하늘 씨가 혼자 삽니다.', 'sex': '여자',
+              'marital_status': '미혼', 'family_type': '1인 가구', 'housing_type': '다세대주택', 'education_level': '4년제 대학교',
+              'district': '서울-관악구', 'province': '서울', **extra}
+    return Persona.objects.create(uuid=uuid, age=age, occupation=occupation, **fields)
+
+
 class PlanTests(SimpleTestCase):
-    def test_plan_is_turn_based(self):
-        self.assertEqual([stage for stage, _ in steps_for(3)], ['independent'] * 9 + ['issues'] + ['debate'] * 9 + ['final'])
-        self.assertEqual([role for _, role in steps_for(3)[:6]], [0, 1, 2, 0, 1, 2])
-        self.assertEqual(len(steps_for(2)), 14)
-        self.assertEqual(phases_for(2), {'discussion': (0, 7), 'review': (7, 13), 'proposal': (13, 14)})
-        self.assertEqual(phases_for(3), {'discussion': (0, 10), 'review': (10, 19), 'proposal': (19, 20)})
-        self.assertEqual([turn_of(i, 3) for i in range(9)], [0, 0, 0, 1, 1, 1, 2, 2, 2])
-        self.assertEqual([turn_of(i, 3) for i in range(10, 19)], [0, 0, 0, 1, 1, 1, 2, 2, 2])
+    def test_server_fixes_the_phases_and_the_moderator_fills_the_debate(self):
+        steps = lambda *stages: [{'stage': stage} for stage in stages]
+        self.assertEqual(next_stage([]), 'issues')
+        self.assertEqual(next_stage(steps('issues')), 'debate')
+        self.assertEqual(next_stage(steps('issues', 'debate', 'debate')), 'debate')
+        self.assertEqual(next_stage(steps('issues', 'debate', 'close')), 'final')
+        self.assertIsNone(next_stage(steps('issues', 'debate', 'close', 'final')))
+        self.assertEqual([next_phase(steps(*s)) for s in ((), ('issues',), ('issues', 'debate', 'close'), ('final',))],
+                         ['discussion', 'review', 'proposal', None])
 
-    def test_chosen_role_opens_every_debate_round(self):
-        plan = steps_for(3, 1)
-        self.assertEqual([role for _, role in plan[:3]], [0, 1, 2])
-        self.assertEqual([role for _, role in plan[10:19]], [1, 0, 2] * 3)
-        self.assertEqual([role for _, role in steps_for(2, None)[7:9]], [0, 1])
+    def test_claims_are_counted_per_issue(self):
+        step = lambda role, issue, n: {'stage': 'debate', 'role': role, 'result': {'items': [{'id': f's{n}-i1'}]}, 'moderator': {'next': [{'issue_id': issue}]}}
+        context = [step(0, 'a', 2), step(1, 'b', 3), step(2, 'a', 4), step(0, 'a', 5)]
+        self.assertEqual(assigned_claim(context, 'c', 2), {'issue_id': 'c', 'claim_id': None, 'reply_id': None})
+        self.assertEqual(assigned_claim(context, 'b', 0), {'issue_id': 'b', 'claim_id': 's3-i1', 'reply_id': None})
+        self.assertEqual(assigned_claim(context, 'a', 1), {'issue_id': 'a', 'claim_id': 's2-i1', 'reply_id': 's5-i1'})
+        self.assertEqual(assigned_claim(context, 'a', 0), {'issue_id': 'a', 'claim_id': 's4-i1', 'reply_id': None})
 
-    def test_is_skipped_follows_the_steps_so_far(self):
-        step = lambda stage, role, n: {'stage': stage, 'role': role, 'result': {'summary': 's', 'items': [{}] * n}}
-        steps = [step('independent', 0, 1), step('independent', 1, 0), step('independent', 2, 1)]
-        self.assertFalse(is_skipped(steps, 3, 3))
-        self.assertTrue(is_skipped(steps, 4, 3))
-        self.assertFalse(is_skipped(steps, 5, 3))
-        steps = [step('independent', r, 1) for _ in range(3) for r in range(3)] + [step('issues', None, 2)]
-        self.assertEqual([is_skipped(steps, 10 + i, 3) for i in range(9)], [False] * 6 + [True] * 3)
-        self.assertFalse(is_skipped(steps, 9, 3))
+    def test_moderator_decisions_are_checked(self):
+        decision = lambda **extra: {'summary': 's', 'speaker': 1, 'question': 'q', 'new_issues': [], **extra}
+        new = {**ISSUE, 'citation': CITATION}
+        validate_moderator([TEXT], decision(new_issues=[new, new]), 3, 0, 3)
+        for bad in (decision(speaker=0), decision(speaker=3), decision(speaker=-1), decision(new_issues=[new] * 3),
+                    decision(new_issues=[{**new, 'citation': {'page': 1, 'quote': '문서에 없는 인용입니다'}}]),
+                    decision(summary='토론을 承担한다'), decision(question='서준수 씨처럼 답해 주세요.')):
+            with self.subTest(bad=bad), self.assertRaises(ValueError):
+                validate_moderator([TEXT], bad, 3, 0, 3)
+
+    def test_pending_issue_follows_the_order_and_the_count(self):
+        from .agents.memory.context import pending_issue
+        issues = {'stage': 'issues', 'result': {'items': [{'id': 'a'}, {'id': 'b'}]}}
+        said = lambda issue, n: [{'stage': 'debate', 'result': {'items': []}, 'moderator': {'next': [{'issue_id': issue}], 'new_issues': []}}] * n
+        self.assertEqual(pending_issue([issues]), ({'id': 'a'}, 0))
+        self.assertEqual(pending_issue([issues] + said('a', 2)), ({'id': 'a'}, 2))
+        self.assertEqual(pending_issue([issues] + said('a', 3)), ({'id': 'b'}, 0))
+        self.assertEqual(pending_issue([issues] + said('a', 3) + said('b', 3)), (None, 0))
 
 
 class ReviewFlowTests(TestCase):
@@ -106,10 +160,9 @@ class ReviewFlowTests(TestCase):
         self.assertEqual(result.status_code, 302)
         return ReviewRun.objects.latest('id')
 
-    def run_steps(self, run, count, **extra):
-        # `count` model calls. Skipped turns ride along, so the next cursor is whatever the server saved.
+    def run_steps(self, run, count, reply=report_response, **extra):
         results = []
-        with patch('server.integrations.transport.call', side_effect=report_response) as model:
+        with patch('server.integrations.transport.call', side_effect=reply) as model:
             for _ in range(count):
                 run.refresh_from_db()
                 results.append(self.client.post(f'/reviews/{run.pk}/step/', {'cursor': str(len(run.steps))}, **extra))
@@ -117,9 +170,9 @@ class ReviewFlowTests(TestCase):
 
     def run_to_end(self, run, reply=report_response):
         with patch('server.integrations.transport.call', side_effect=reply) as model:
-            for _ in range(50):
+            for _ in range(30):
                 run.refresh_from_db()
-                if len(run.steps) == len(steps_for(len(run.analysis['roles']))):
+                if run.steps and run.steps[-1]['stage'] == 'final':
                     break
                 self.client.post(f'/reviews/{run.pk}/step/', {'cursor': str(len(run.steps))})
         return model
@@ -131,85 +184,89 @@ class ReviewFlowTests(TestCase):
         run.refresh_from_db()
         return run
 
-    def test_step_plan_follows_role_count(self):
-        self.assertEqual([stage for stage, _ in steps_for(2)], ['independent'] * 6 + ['issues'] + ['debate'] * 6 + ['final'])
-        self.assertEqual(len(steps_for(3)), 20)
-        self.assertEqual(phases_for(2), {'discussion': (0, 7), 'review': (7, 13), 'proposal': (13, 14)})
-
-    def test_roles_with_nothing_to_add_are_skipped_and_the_run_completes(self):
-        run = self.create_run()
-        self.client.post(f'/reviews/{run.pk}/select/', {'role': '0'})
-        def reply(payload, key):
-            if stage_of(payload) == 'independent':
-                return response({'summary': '쟁점 없음', 'items': []})
-            return report_response(payload, key)
-        model = self.run_to_end(run, reply)
-        run.refresh_from_db()
-        self.assertEqual([step.get('skipped', False) for step in run.steps[3:9]], [True] * 6)
-        self.assertEqual(len(run.steps), 20)
-        self.assertEqual(run.steps[-1]['stage'], 'final')
-        self.assertEqual(model.call_count, 8)
-
-    def test_skipped_turns_have_no_bubble_but_nothing_to_add_does(self):
-        run = self.create_run()
-        self.client.post(f'/reviews/{run.pk}/select/', {'role': '0'})
-        def reply(payload, key):
-            if stage_of(payload) == 'independent':
-                return response({'summary': '쟁점 없음', 'items': []})
-            return report_response(payload, key)
-        self.run_to_end(run, reply)
-        page = self.client.get(f'/reviews/{run.pk}/?page=discussion')
-        for number in (1, 2, 3):
-            self.assertContains(page, f'id="s{number}-empty"')
-        for number in range(4, 10):
-            self.assertNotContains(page, f'id="s{number}-empty"')
-
-    def test_cursor_jumps_past_skipped_turns(self):
-        run = self.create_run()
-        self.client.post(f'/reviews/{run.pk}/select/', {'role': '0'})
-        headers = {'HTTP_ACCEPT': 'application/json'}
-        _, results = self.run_steps(run, 13, **headers)
-        self.assertEqual(results[12].json()['cursor'], 19)
-        _, last = self.run_steps(run, 1, **headers)
-        self.assertTrue(last[0].json()['complete'])
-
-    def test_failed_turn_adds_no_skipped_steps(self):
-        run = self.create_run()
-        self.client.post(f'/reviews/{run.pk}/select/', {'role': '0'})
-        self.run_steps(run, 12)
-        with patch('server.integrations.transport.call', side_effect=TimeoutError('timeout')):
-            self.client.post(f'/reviews/{run.pk}/step/', {'cursor': '12'})
-        run.refresh_from_db()
-        self.assertEqual(len(run.steps), 12)
-        self.assertFalse(any(step.get('skipped') for step in run.steps))
-        self.run_steps(run, 1)
-        run.refresh_from_db()
-        self.assertEqual(len(run.steps), 19)
-
     def test_three_roles_full_flow_and_duplicate_cursor(self):
         run = self.create_run()
         self.assertContains(self.client.get(f'/reviews/{run.pk}/'), '임차인')
         self.client.post(f'/reviews/{run.pk}/select/', {'role': '0'})
         with patch('server.integrations.transport.call', side_effect=report_response) as model:
-            for _ in range(14):
+            for _ in range(6):
                 run.refresh_from_db()
                 self.client.post(f'/reviews/{run.pk}/step/', {'cursor': str(len(run.steps))})
-            self.client.post(f'/reviews/{run.pk}/step/', {'cursor': '19'})
-            self.assertEqual(model.call_count, 14)
+            self.client.post(f'/reviews/{run.pk}/step/', {'cursor': '5'})
+            # Issues 1, opening 1, two moderated turns 2 each, close without a call, final 1.
+            self.assertEqual(model.call_count, 7)
         run.refresh_from_db()
-        self.assertEqual(len(run.steps), 20)
+        self.assertEqual([(step['stage'], step['role']) for step in run.steps],
+                         [('issues', None), ('debate', 0), ('debate', 1), ('debate', 2), ('close', None), ('final', None)])
         self.assertContains(self.client.get(f'/reviews/{run.pk}/?page=proposal'), '주의 조항 정리')
 
-    def test_two_roles_run_fourteen_steps(self):
+    def test_two_roles_complete_the_same_way(self):
         run = self.completed_run(TWO_ROLES, '1')
-        self.assertEqual(len(run.steps), 14)
-        self.assertEqual(run.steps[-1]['stage'], 'final')
+        self.assertEqual([step['role'] for step in run.steps if step['stage'] == 'debate'], [1, 0, 1])
         review = self.client.get(f'/reviews/{run.pk}/?page=review')
-        self.assertContains(review, 'id="s8-i1"')
-        self.assertContains(review, 'id="s9-i1"')
+        self.assertContains(review, 'id="s2-i1"')
+        self.assertContains(review, 'id="s3-i1"')
         self.assertContains(review, 'AI · 2개의 관점')
         self.assertEqual(len(feedback_letters(run)), 2)
-        self.assertEqual(self.client.post(f'/reviews/{run.pk}/step/', {'cursor': '14'}).status_code, 302)
+        self.assertEqual(self.client.post(f'/reviews/{run.pk}/step/', {'cursor': '6'}).status_code, 302)
+
+    def test_each_issue_gets_its_statements_and_opens_with_the_users_role(self):
+        run = self.create_run()
+        self.client.post(f'/reviews/{run.pk}/select/', {'role': '1'})
+        model = self.run_to_end(run, two_issues)
+        run.refresh_from_db()
+        debate = [step for step in run.steps if step['stage'] == 'debate']
+        self.assertEqual([step['role'] for step in debate], [1, 2, 0, 1, 2, 0])
+        self.assertEqual([step['moderator']['next'][0]['issue_id'] for step in debate], ['s1-i1'] * 3 + ['s1-i2'] * 3)
+        self.assertEqual(run.steps[-2]['result']['summary'], '쟁점마다 정해진 발언을 마쳐 토론을 끝내요.')
+        calls = [(stage_of(call.args[0]), json.loads(call.args[0]['input'])) for call in model.call_args_list]
+        openers = [data for stage, data in calls if stage == 'debate' and data['assigned_claims'][0]['claim_id'] is None]
+        self.assertEqual([(data['acting_role']['name'], data['moderator_question']) for data in openers], [('임대인', ''), ('임대인', '')])
+        self.assertEqual([data['current_issue_id'] for stage, data in calls if stage == 'moderator'], ['s1-i1'] * 2 + ['s1-i2'] * 2)
+        self.assertEqual(model.call_count, 1 + 2 * 5 + 1)  # Issues, two issues of 1 opener and 2 moderated turns, final.
+
+    def test_statements_per_issue_are_a_setting(self):
+        run = self.create_run()
+        self.client.post(f'/reviews/{run.pk}/select/', {'role': '0'})
+        with patch('server.agents.memory.context.PER_ISSUE', 2):
+            self.run_to_end(run, two_issues)
+        run.refresh_from_db()
+        self.assertEqual([step['role'] for step in run.steps if step['stage'] == 'debate'], [0, 1, 0, 1])
+
+    def test_bad_moderator_choice_is_repaired_once(self):
+        run = self.create_run()
+        self.client.post(f'/reviews/{run.pk}/select/', {'role': '0'})
+        self.run_steps(run, 2)
+        same = {'summary': 's', 'speaker': 0, 'question': 'q', 'new_issues': []}
+        good = dict(same, speaker=2)
+        debate = {'summary': 's', 'items': [{**ITEMS['debate'], 'citation': CITATION, 'target_ids': ['s1-i1', 's2-i1']}]}
+        with patch('server.integrations.transport.call', side_effect=[response(same), response(good), response(debate)]) as model:
+            self.client.post(f'/reviews/{run.pk}/step/', {'cursor': '2'})
+        run.refresh_from_db()
+        self.assertEqual((run.error, len(run.steps), run.steps[2]['role']), ('', 3, 2))
+        self.assertIn('직전 발언자', json.loads(model.call_args_list[1].args[0]['input'])['validation_error'])
+        self.assertNotIn('selected_role', json.loads(model.call_args_list[0].args[0]['input']))
+
+    def test_new_issue_is_debated_after_the_original_ones(self):
+        run = self.create_run()
+        self.client.post(f'/reviews/{run.pk}/select/', {'role': '0'})
+        self.run_steps(run, 2)
+        new = {**ISSUE, 'issue': '새로 부딪힌 조항', 'citation': CITATION}
+        seen = []
+        def reply(payload, key):
+            if stage_of(payload) != 'moderator':
+                return report_response(payload, key)
+            seen.append(payload)
+            return response(dict(moderation(json.loads(payload['input'])), new_issues=[new] if len(seen) == 1 else []))
+        self.run_steps(run, 4, reply)
+        run.refresh_from_db()
+        self.assertEqual(run.steps[2]['moderator']['new_issues'][0]['id'], 's3-n1')
+        self.assertEqual([issue['id'] for issue in json.loads(seen[1]['input'])['issues']], ['s1-i1', 's3-n1'])
+        opener = run.steps[4]
+        self.assertEqual((opener['role'], opener['moderator']['next'][0]['issue_id']), (0, 's3-n1'))  # The user's role opens it too.
+        review = self.client.get(f'/reviews/{run.pk}/?page=review')
+        self.assertContains(review, 'id="s3-moderator"')
+        self.assertContains(review, '새로 부딪힌 조항')
 
     def test_role_count_limits_are_enforced(self):
         for roles in (ANALYSIS['roles'][:1], ANALYSIS['roles'] + [role('시민')]):
@@ -218,6 +275,13 @@ class ReviewFlowTests(TestCase):
                 self.assertEqual(model.call_count, 2)
                 self.assertContains(page, '2~3명')
                 self.assertContains(page, '문서 분석 재시도')
+
+    def test_persona_hint_age_range_is_checked(self):
+        bad = dict(ANALYSIS, roles=[{**role('임차인'), 'persona_hint': {'age_min': 40, 'age_max': 30, 'keywords': ['월세']}}, role('임대인')])
+        with patch('server.integrations.transport.call', return_value=response(bad)) as model:
+            page = self.client.post('/', {'text': TEXT}, follow=True)
+            self.assertEqual(model.call_count, 2)
+        self.assertContains(page, '문서 분석 재시도')
 
     def test_insufficient_document_explains_without_repair(self):
         result = dict(ANALYSIS, status='insufficient', roles=[], selection_note='역할 구분이 드러나지 않습니다.')
@@ -244,104 +308,141 @@ class ReviewFlowTests(TestCase):
         run = self.create_run()
         self.assertContains(self.client.get(f'/reviews/{run.pk}/'), '문서에 직접 언급되지 않은 역할이에요.', count=1)
 
+    def test_roles_get_a_matching_persona_that_agents_speak_as(self):
+        persona('young', 27, '편의점 판매원', housing_type='월세 다세대주택')
+        persona('old', 71, '하역 작업자', housing_type='월세 아파트')
+        run = self.create_run()
+        self.assertEqual([p and p['uuid'] for p in run.personas], ['young', None, None])  # One person per role, never reused.
+        stored = run.personas[0]
+        self.assertEqual((stored['persona'], stored['professional_persona'], stored['family_persona']),
+                         ('편의점 판매원로 일하는 사람입니다.', '손이 빠릅니다.', '혼자 삽니다.'))  # The name is deleted before anything stores or sends it.
+        summary = self.client.get(f'/reviews/{run.pk}/')
+        self.assertContains(summary, 'Nemotron-Personas-Korea(CC BY 4.0)')
+        for detail in ('하늘', '27세', '관악구', '편의점 판매원'):
+            self.assertNotContains(summary, detail)
+        self.client.post(f'/reviews/{run.pk}/select/', {'role': '0'})
+        model, _ = self.run_steps(run, 2)
+        issues, opening = [json.loads(call.args[0]['input']) for call in model.call_args_list]
+        self.assertEqual(issues['history'], [])
+        self.assertEqual([r['persona'] and r['persona']['uuid'] for r in issues['roles']], ['young', None, None])
+        self.assertEqual(opening['acting_role']['persona']['occupation'], '편의점 판매원')
+        self.assertNotIn('하늘', json.dumps(model.call_args_list[1].args[0], ensure_ascii=False))
+        run.refresh_from_db()
+        run.personas[0]['persona'] = '김하늘 씨는 예전에 저장된 인물입니다.'
+        run.save()
+        model, _ = self.run_steps(run, 1)
+        self.assertNotIn('하늘', json.dumps([call.args[0] for call in model.call_args_list], ensure_ascii=False))
+
+    def test_a_persons_name_in_a_statement_goes_back_for_repair(self):
+        run = self.create_run()
+        self.client.post(f'/reviews/{run.pk}/select/', {'role': '0'})
+        self.run_steps(run, 1)
+        named = {'summary': 's', 'items': [{**ITEMS['debate'], 'reason': '서준수 씨처럼 첫 경력을 준비하는 청년은 불리합니다.', 'citation': CITATION, 'target_ids': ['s1-i1']}]}
+        plain = {'summary': 's', 'items': [{**named['items'][0], 'reason': '첫 경력을 준비하는 청년은 불리합니다.'}]}
+        with patch('server.integrations.transport.call', side_effect=[response(named), response(plain)]) as model:
+            self.client.post(f'/reviews/{run.pk}/step/', {'cursor': '1'})
+        run.refresh_from_db()
+        self.assertIn('사람 이름', json.loads(model.call_args_list[1].args[0]['input'])['validation_error'])
+        self.assertEqual(run.steps[1]['result']['items'][0]['reason'], '첫 경력을 준비하는 청년은 불리합니다.')
+        validate_report(['담당자 홍길동 씨에게 제출한다.'], {'summary': 's', 'items': [{**ISSUE, 'reason': '홍길동 씨에게 내야 합니다.', 'citation': {'page': 1, 'quote': '담당자 홍길동 씨에게 제출한다.'}}]}, 'issues', [])
+        self.assertEqual(run.analysis, ANALYSIS)  # The persona is kept apart from the extracted roles.
+
+    def test_persona_must_fit_age_and_a_keyword(self):
+        persona('old', 71, '하역 작업자', housing_type='월세')
+        persona('young', 25, '카페 직원', family_type='1인 가구', housing_type='월세')
+        hint = lambda *words: {'age_min': 19, 'age_max': 39, 'keywords': list(words)}
+        self.assertIsNone(match_persona(hint('하역')))
+        self.assertEqual(match_persona(hint('월세'))['uuid'], 'young')
+        self.assertIsNone(match_persona(hint('월세'), ['young']))
+        self.assertIsNone(match_persona(hint(' ')))
+
+    def test_load_personas_stores_a_sample(self):
+        row = {'uuid': 'p1', 'persona': '요약', 'professional_persona': '직업', 'family_persona': '가족', 'sex': '남자', 'age': 30,
+               'marital_status': '미혼', 'family_type': '1인 가구', 'housing_type': '아파트', 'education_level': '대학교',
+               'occupation': '사무원', 'district': '서울-강남구', 'province': '서울', 'country': '대한민국', 'arts_persona': '쓰지 않는 칸'}
+        class Body:
+            def __enter__(self): return self
+            def __exit__(self, *args): return False
+            def read(self, *args): return json.dumps({'rows': [{'row_idx': 0, 'row': row}]}).encode()
+        with patch('server.management.commands.load_personas.urlopen', return_value=Body()) as opened, \
+                patch('server.management.commands.load_personas.time.sleep'):
+            call_command('load_personas', '--count', '200', stdout=StringIO())
+        self.assertEqual(opened.call_count, 2)
+        self.assertEqual(list(Persona.objects.values_list('uuid', 'age', 'occupation')), [('p1', 30, '사무원')])
+
     def test_role_agents_do_not_learn_user_choice(self):
         run = self.create_run()
         self.client.post(f'/reviews/{run.pk}/select/', {'role': '2'})
-        model, _ = self.run_steps(run, 14)
-        run.refresh_from_db()
-        sent = [json.loads(call.args[0]['input']) for call in model.call_args_list]
-        plan = [entry for entry, step in zip(steps_for(3, 2), run.steps) if not step.get('skipped')]
-        for (stage, acting), data in zip(plan, sent):
-            with self.subTest(stage=stage, role=acting):
+        model, _ = self.run_steps(run, 6)
+        calls = [(stage_of(call.args[0]), json.loads(call.args[0]['input'])) for call in model.call_args_list]
+        for stage, data in calls:
+            with self.subTest(stage=stage):
                 self.assertNotIn('selected_role', data)
                 self.assertEqual('user_role' in data, stage == 'final')
-                self.assertEqual('roles' in data, acting is None)
-                if acting is not None:
-                    self.assertEqual(data['acting_role']['name'], ANALYSIS['roles'][acting]['name'])
-        self.assertEqual(sent[-1]['user_role']['name'], '지자체')
-        self.assertEqual(sent[0]['history'], [])
-        self.assertEqual(sent[9]['history'][0]['speaker'], '임차인')
-        self.assertEqual({step['stage'] for step in sent[-1]['history']}, {'issues', 'debate'})
+                self.assertEqual('acting_role' in data, stage == 'debate')
+        debate = [data for stage, data in calls if stage == 'debate']
+        self.assertEqual([data['acting_role']['name'] for data in debate], ['지자체', '임차인', '임대인'])
+        self.assertEqual(calls[-1][1]['user_role']['name'], '지자체')
+        self.assertEqual({step['stage'] for step in calls[-1][1]['history']}, {'issues', 'debate'})
 
-    def test_independent_turn_sees_only_its_own_earlier_opinions(self):
+    def test_debate_turns_answer_the_statements_on_their_issue(self):
         run = self.create_run()
         self.client.post(f'/reviews/{run.pk}/select/', {'role': '0'})
-        model, _ = self.run_steps(run, 5)
-        sent = [json.loads(call.args[0]['input']) for call in model.call_args_list]
-        self.assertEqual(sent[0]['history'], [])
-        self.assertEqual([h['speaker'] for h in sent[3]['history']], ['임차인'])
-        self.assertEqual([h['speaker'] for h in sent[4]['history']], ['임대인'])
-        for index, data in enumerate(sent):
-            self.assertLessEqual({h['role'] for h in data['history']}, {index % 3})
-
-    def test_debate_turn_gets_one_issue_and_rounds_follow_issue_count(self):
-        run = self.create_run()
-        self.client.post(f'/reviews/{run.pk}/select/', {'role': '0'})
-        def reply(payload, key):
-            if stage_of(payload) != 'issues':
-                return report_response(payload, key)
-            ids = json.loads(payload['input'])['allowed_target_ids']
-            item = lambda number: {**ITEMS['issues'], 'issue': f'쟁점 {number}', 'citation': CITATION, 'target_ids': ids}
-            return response({'summary': 's', 'items': [item(1), item(2)], 'excluded': ['x']})
-        model = self.run_to_end(run, reply)
-        run.refresh_from_db()
+        model = self.run_to_end(run)
         debate = [json.loads(call.args[0]['input']) for call in model.call_args_list if stage_of(call.args[0]) == 'debate']
-        self.assertEqual([len(data['assigned_claims']) for data in debate], [1] * 6)
-        self.assertEqual([data['assigned_claims'][0]['issue_id'] for data in debate], ['s10-i1'] * 3 + ['s10-i2'] * 3)
-        self.assertEqual([data['assigned_claims'][0]['claim_id'] for data in debate], [None, 's11-i1', 's11-i1', None, 's14-i1', 's14-i1'])
-        self.assertEqual(model.call_count, 17)
-        self.assertEqual(len(run.steps), 20)
-        self.assertEqual([step.get('skipped', False) for step in run.steps[16:19]], [True] * 3)
+        self.assertEqual([data['assigned_claims'] for data in debate], [
+            [{'issue_id': 's1-i1', 'claim_id': None, 'reply_id': None}],
+            [{'issue_id': 's1-i1', 'claim_id': 's2-i1', 'reply_id': None}],
+            [{'issue_id': 's1-i1', 'claim_id': 's2-i1', 'reply_id': 's3-i1'}]])
+        self.assertEqual([data['moderator_question'] for data in debate], ['', '앞 발언에 답해 주세요.', '앞 발언에 답해 주세요.'])
+        self.assertEqual([[h['speaker'] for h in data['history'] if h['stage'] == 'debate'] for data in debate],
+                         [[], ['임차인'], ['임차인', '임대인']])
+        self.assertEqual(debate[0]['acting_role']['red_line'], '양보하기 어려운 것')
 
     def test_one_item_per_turn_and_at_most_three_issues(self):
         run = self.create_run()
         self.client.post(f'/reviews/{run.pk}/select/', {'role': '0'})
         item = lambda stage, **extra: {**ITEMS[stage], 'citation': CITATION, **extra}
-        with patch('server.integrations.transport.call', return_value=response({'summary': 's', 'items': [item('independent')] * 2})) as model:
+        four = {'summary': 's', 'items': [item('issues')] * 4, 'excluded': ['x']}
+        with patch('server.integrations.transport.call', return_value=response(four)) as model:
             self.client.post(f'/reviews/{run.pk}/step/', {'cursor': '0'})
             self.assertEqual(model.call_count, 2)
         run.refresh_from_db()
-        self.assertIn('하나만', run.error)
-        self.assertEqual(len(run.steps), 0)
-        self.run_steps(run, 9)
-        four = {'summary': 's', 'items': [item('issues', target_ids=['s1-i1'])] * 4, 'excluded': ['x']}
-        with patch('server.integrations.transport.call', return_value=response(four)):
-            self.client.post(f'/reviews/{run.pk}/step/', {'cursor': '9'})
-        run.refresh_from_db()
         self.assertIn('최대 3개', run.error)
-        self.assertEqual(len(run.steps), 9)
+        self.assertEqual(len(run.steps), 0)
         self.run_steps(run, 1)
-        two = {'summary': 's', 'items': [item('debate', target_ids=['s10-i1', 's2-i1'])] * 2}
+        two = {'summary': 's', 'items': [item('debate', target_ids=['s1-i1'])] * 2}
         with patch('server.integrations.transport.call', return_value=response(two)):
-            self.client.post(f'/reviews/{run.pk}/step/', {'cursor': '10'})
+            self.client.post(f'/reviews/{run.pk}/step/', {'cursor': '1'})
         run.refresh_from_db()
         self.assertIn('하나만', run.error)
-        self.assertEqual(len(run.steps), 10)
+        self.assertEqual(len(run.steps), 1)
 
-    def test_prompts_ask_for_one_item_at_a_time(self):
+    def test_prompts_match_the_moderated_flow(self):
         prompts = settings.BASE_DIR / 'prompts'
-        independent = (prompts / 'independent.md').read_text(encoding='utf-8')
-        self.assertIn('더 다룰 쟁점이 없으면', independent)
-        self.assertNotIn('최대 5개', independent)
+        self.assertFalse((prompts / 'independent.md').exists())
         self.assertIn('최대 3개', (prompts / 'issues.md').read_text(encoding='utf-8'))
-        self.assertIn('쟁점 하나만', (prompts / 'debate.md').read_text(encoding='utf-8'))
+        self.assertIn('쟁점 하나', (prompts / 'debate.md').read_text(encoding='utf-8'))
+        self.assertIn('statements_left', (prompts / 'moderator.md').read_text(encoding='utf-8'))
+        self.assertIn('○○ 씨', (prompts / 'common.md').read_text(encoding='utf-8'))
 
     def test_debate_targets_exclude_own_statement_and_are_schema_enums(self):
         run = self.create_run()
         self.client.post(f'/reviews/{run.pk}/select/', {'role': '0'})
-        model, _ = self.run_steps(run, 11)
-        payload = model.call_args_list[10].args[0]
-        others = ['s2-i1', 's3-i1', 's5-i1', 's6-i1', 's8-i1', 's9-i1', 's10-i1']
+        model, _ = self.run_steps(run, 5, two_issues)
+        payload = model.call_args_list[-1].args[0]
+        self.assertEqual(json.loads(payload['input'])['acting_role']['name'], '임차인')
+        others = ['s1-i1', 's1-i2', 's3-i1', 's4-i1']
         self.assertEqual(json.loads(payload['input'])['allowed_target_ids'], others)
         schema = payload['text']['format']['schema']['properties']['items']['items']['properties']['target_ids']
         self.assertEqual(schema['items']['enum'], others)
-        self.assertEqual(report('issues', [])['properties']['items']['items']['properties']['target_ids']['items'], {'type': 'string'})
+        self.assertNotIn('target_ids', report('issues', [])['properties']['items']['items']['properties'])
 
     def test_validation_failure_is_repaired_once_with_feedback(self):
         run = self.create_run()
         self.client.post(f'/reviews/{run.pk}/select/', {'role': '0'})
-        wrong = {'summary': 's', 'items': [{**ITEMS['independent'], 'citation': {'page': 1, 'quote': '문서에 없는 인용입니다'}}]}
-        right = {'summary': 's', 'items': [{**ITEMS['independent'], 'citation': CITATION}]}
+        result = lambda quote: {'summary': 's', 'items': [{**ITEMS['issues'], 'citation': {'page': 1, 'quote': quote}}], 'excluded': ['x']}
+        wrong, right = result('문서에 없는 인용입니다'), result(CITATION['quote'])
         with patch('server.integrations.transport.call', side_effect=[response(wrong), response(right)]) as model:
             self.client.post(f'/reviews/{run.pk}/step/', {'cursor': '0'})
         run.refresh_from_db()
@@ -364,73 +465,44 @@ class ReviewFlowTests(TestCase):
             self.client.post(f'/reviews/{run.pk}/step/', {'cursor': '0'})
             self.assertEqual(model.call_count, 1)
 
-    def test_independent_may_be_empty_but_later_stages_may_not(self):
+    def test_issues_may_not_be_empty(self):
         run = self.create_run()
         self.client.post(f'/reviews/{run.pk}/select/', {'role': '0'})
-        with patch('server.integrations.transport.call', return_value=response({'summary': '쟁점 없음', 'items': []})):
-            for cursor in range(3):
-                self.client.post(f'/reviews/{run.pk}/step/', {'cursor': str(cursor)})
-        run.refresh_from_db()
-        self.assertEqual(len(run.steps), 9)
         with patch('server.integrations.transport.call', return_value=response({'summary': '없음', 'items': [], 'excluded': []})):
-            self.client.post(f'/reviews/{run.pk}/step/', {'cursor': '9'})
+            self.client.post(f'/reviews/{run.pk}/step/', {'cursor': '0'})
         run.refresh_from_db()
-        self.assertEqual(len(run.steps), 9)
+        self.assertEqual(len(run.steps), 0)
         self.assertIn('하나 이상', run.error)
-
-    def test_debate_is_a_conversation_opened_by_the_chosen_role(self):
-        run = self.create_run()
-        self.client.post(f'/reviews/{run.pk}/select/', {'role': '1'})
-        model, _ = self.run_steps(run, 13)
-        debate = [json.loads(call.args[0]['input']) for call in model.call_args_list if stage_of(call.args[0]) == 'debate']
-        self.assertEqual([data['acting_role']['name'] for data in debate], ['임대인', '임차인', '지자체'])
-        self.assertEqual([data['assigned_claims'] for data in debate], [
-            [{'issue_id': 's10-i1', 'claim_id': None, 'reply_id': None}],
-            [{'issue_id': 's10-i1', 'claim_id': 's11-i1', 'reply_id': None}],
-            [{'issue_id': 's10-i1', 'claim_id': 's11-i1', 'reply_id': 's12-i1'}]])
-        self.assertEqual([[h['speaker'] for h in data['history'] if h['stage'] == 'debate'] for data in debate],
-                         [[], ['임대인'], ['임대인', '임차인']])
-        self.assertIn('s11-i1', debate[1]['allowed_target_ids'])
-        self.assertIn('s12-i1', debate[2]['allowed_target_ids'])
-        self.assertEqual(debate[0]['acting_role']['red_line'], '양보하기 어려운 것')
 
     def test_opening_statement_is_labelled_apart_from_replies(self):
         run = self.create_run()
         self.client.post(f'/reviews/{run.pk}/select/', {'role': '1'})
-        self.run_steps(run, 13)
+        self.run_steps(run, 4)
         page = self.client.get(f'/reviews/{run.pk}/?page=review')
         self.assertContains(page, '<strong>상대 주장</strong>', count=2)
         self.assertContains(page, '<strong>쟁점</strong>', count=1)
 
-    def test_debate_reply_must_answer_the_opening_statement(self):
+    def test_server_links_the_assigned_issue_and_claims_the_model_left_out(self):
         run = self.create_run()
         self.client.post(f'/reviews/{run.pk}/select/', {'role': '0'})
-        self.run_steps(run, 11)
-        run.refresh_from_db()
-        item = {**ITEMS['debate'], 'citation': CITATION, 'target_ids': ['s10-i1']}
-        with patch('server.integrations.transport.call', return_value=response({'summary': 's', 'items': [item]})):
-            self.client.post(f'/reviews/{run.pk}/step/', {'cursor': '11'})
-        run.refresh_from_db()
-        self.assertEqual(len(run.steps), 11)
-        self.assertIn('s11-i1', run.error)
-
-    def test_third_speaker_must_answer_the_earlier_reply_too(self):
-        run = self.create_run()
-        self.client.post(f'/reviews/{run.pk}/select/', {'role': '0'})
-        self.run_steps(run, 12)
-        item = {**ITEMS['debate'], 'citation': CITATION, 'target_ids': ['s10-i1', 's11-i1']}
-        with patch('server.integrations.transport.call', return_value=response({'summary': 's', 'items': [item]})):
-            self.client.post(f'/reviews/{run.pk}/step/', {'cursor': '12'})
-        run.refresh_from_db()
-        self.assertEqual(len(run.steps), 12)
-        self.assertIn('s12-i1', run.error)
+        self.run_steps(run, 1)
+        def reply(target_ids):
+            item = {**ITEMS['debate'], 'citation': CITATION, 'target_ids': target_ids}
+            return lambda payload, key: report_response(payload, key) if stage_of(payload) == 'moderator' else response({'summary': 's', 'items': [item]})
+        # The opener forgot its issue, the second speaker the claim, the third the earlier reply: no repair call, no stop.
+        for target_ids, expected in (([], ['s1-i1']), (['s1-i1'], ['s1-i1', 's2-i1']), (['s2-i1'], ['s1-i1', 's2-i1', 's3-i1'])):
+            model, _ = self.run_steps(run, 1, reply(target_ids))
+            run.refresh_from_db()
+            self.assertEqual(run.error, '')
+            self.assertNotIn('repair', [call.get('purpose') for call in run.calls[-model.call_count:]])
+            self.assertEqual(run.steps[-1]['result']['items'][0]['target_ids'], expected)
 
     def test_hanzi_slip_goes_back_for_repair(self):
         run = self.create_run()
         self.client.post(f'/reviews/{run.pk}/select/', {'role': '0'})
-        slip = {**ITEMS['independent'], 'citation': CITATION, 'reason': '비용을 누가承担할지 없다'}
+        slip = {**ITEMS['issues'], 'citation': CITATION, 'reason': '비용을 누가承担할지 없다'}
         fixed = {**slip, 'reason': '비용을 누가 부담할지 없다'}
-        with patch('server.integrations.transport.call', side_effect=[response({'summary': 's', 'items': [item]}) for item in (slip, fixed)]) as model:
+        with patch('server.integrations.transport.call', side_effect=[response({'summary': 's', 'items': [item], 'excluded': []}) for item in (slip, fixed)]) as model:
             self.client.post(f'/reviews/{run.pk}/step/', {'cursor': '0'})
         run.refresh_from_db()
         self.assertEqual(model.call_count, 2)
@@ -438,39 +510,73 @@ class ReviewFlowTests(TestCase):
 
     def test_hanzi_from_the_document_is_allowed(self):
         pages = ['임차인은 月貰를 지원받는다.']
-        item = {**ITEMS['independent'], 'reason': '月貰 기준이 없다', 'citation': {'page': 1, 'quote': '임차인은 月貰를 지원받는다.'}}
-        validate_report(pages, {'summary': 's', 'items': [item]}, 'independent', [])
+        item = {**ITEMS['issues'], 'reason': '月貰 기준이 없다', 'citation': {'page': 1, 'quote': '임차인은 月貰를 지원받는다.'}}
+        validate_report(pages, {'summary': 's', 'items': [item]}, 'issues', [])
 
-    def test_chat_bubble_shows_the_whole_reason_once(self):
+    def test_issue_cards_show_one_line_per_role_instead_of_a_chat(self):
         run = self.create_run()
-        self.client.post(f'/reviews/{run.pk}/select/', {'role': '0'})
-        reason = '근거가 부족합니다 ' * 30
-        item = {**ITEMS['independent'], 'citation': CITATION, 'reason': reason}
-        with patch('server.integrations.transport.call', return_value=response({'summary': 's', 'items': [item]})):
-            self.client.post(f'/reviews/{run.pk}/step/', {'cursor': '0'})
+        self.client.post(f'/reviews/{run.pk}/select/', {'role': '1'})
+        self.run_steps(run, 1)
         page = self.client.get(f'/reviews/{run.pk}/?page=discussion')
-        self.assertContains(page, reason.strip(), count=1)
-        self.assertIn(reason.strip(), page.content.decode().split('class="bubble"')[1].split('<details')[0])  # Readable without opening anything.
+        self.assertNotContains(page, 'class="chat-room glass"')
+        self.assertContains(page, '<article class="issue-card" id="s1-i1">')
+        for index, name in enumerate(['임차인', '임대인', '지자체']):
+            self.assertContains(page, f'<strong>{name}</strong>')
+            self.assertContains(page, f'역할 {index}의 한 줄 입장')
+        self.assertContains(page, '<strong>임대인</strong><span class="self-tag">내 입장</span>')
 
-    def test_debate_must_answer_every_issue(self):
+    def test_every_role_needs_exactly_one_position(self):
         run = self.create_run()
         self.client.post(f'/reviews/{run.pk}/select/', {'role': '0'})
-        self.run_steps(run, 10)
-        run.refresh_from_db()
-        item = {**ITEMS['debate'], 'citation': CITATION, 'target_ids': ['s2-i1']}
-        with patch('server.integrations.transport.call', return_value=response({'summary': 's', 'items': [item]})):
-            self.client.post(f'/reviews/{run.pk}/step/', {'cursor': '10'})
-        run.refresh_from_db()
-        self.assertEqual(len(run.steps), 10)
-        self.assertIn('s10-i1', run.error)
+        for wrong in (positions(2), positions(3) + positions(1), [{'role': 3, 'stance': 's'}] + positions(2)):
+            with self.subTest(wrong=wrong), patch('server.integrations.transport.call',
+                                                  return_value=response({'summary': 's', 'items': [{**ITEMS['issues'], 'positions': wrong, 'citation': CITATION}], 'excluded': []})):
+                self.client.post(f'/reviews/{run.pk}/step/', {'cursor': '0'})
+                run.refresh_from_db()
+                self.assertEqual(run.steps, [])
+                self.assertIn('한 줄씩', run.error)
+
+    def test_debate_shows_the_current_issue_and_where_it_changes(self):
+        run = self.create_run()
+        self.client.post(f'/reviews/{run.pk}/select/', {'role': '0'})
+        headers = {'HTTP_ACCEPT': 'application/json'}
+        self.run_steps(run, 1, two_issues)
+        self.assertIn('쟁점 01 · 지원 대상 기준', self.client.get(f'/reviews/{run.pk}/status/', **headers).json()['current_issue_html'])
+        _, results = self.run_steps(run, 3, two_issues, **headers)
+        self.assertIn('지금 토론 중인 쟁점', results[-1].json()['current_issue_html'])
+        self.assertIn('쟁점 02 · 다른 쟁점 2', results[-1].json()['current_issue_html'])  # Shown before its first statement arrives.
+        self.run_steps(run, 1, two_issues)
+        review = self.client.get(f'/reviews/{run.pk}/?page=review')
+        self.assertContains(review, 'id="s2-divider"')
+        self.assertContains(review, 'id="s5-divider"')
+        for same_issue in (3, 4):
+            self.assertNotContains(review, f'id="s{same_issue}-divider"')
+        self.assertContains(review, 'id="new-issues-section" hidden')
+        self.run_to_end(run, two_issues)
+        self.assertIn('토론을 마쳤어요.', self.client.get(f'/reviews/{run.pk}/status/', **headers).json()['current_issue_html'])
+
+    def test_moderator_lists_new_issues_apart_from_the_chat(self):
+        run = self.create_run()
+        self.client.post(f'/reviews/{run.pk}/select/', {'role': '0'})
+        self.run_steps(run, 2)
+        new = {**ISSUE, 'issue': '새로 부딪힌 조항', 'contested': '새 쟁점의 입장 차이', 'citation': CITATION}
+        reply = lambda payload, key: response(dict(moderation(json.loads(payload['input'])), new_issues=[new])) if stage_of(payload) == 'moderator' else report_response(payload, key)
+        _, results = self.run_steps(run, 1, reply, HTTP_ACCEPT='application/json')
+        self.assertIn('쟁점 02', results[0].json()['new_issues_html'])
+        self.assertIn('새 쟁점의 입장 차이', results[0].json()['new_issues_html'])
+        review = self.client.get(f'/reviews/{run.pk}/?page=review').content.decode()
+        self.assertIn('id="new-issues-section" >', review)
+        panel = review.split('id="new-issues-section"')[1]
+        self.assertIn('<article class="issue-card" id="s3-n1">', panel)
+        self.assertIn('href="#s3-n1"', review.split('id="new-issues-section"')[0])  # The moderator's bubble points to the summary.
 
     def test_malformed_output_is_rejected(self):
         run = self.create_run()
         self.client.post(f'/reviews/{run.pk}/select/', {'role': '0'})
-        good = {'summary': 's', 'items': [{**ITEMS['independent'], 'citation': CITATION}]}
+        good = {'summary': 's', 'items': [{**ITEMS['issues'], 'citation': CITATION}], 'excluded': ['x']}
         bad = [dict(good, items='invalid'), dict(good, extra='unexpected')]
-        for field, value in [('signal', '기타'), ('stance', '중립')]:
-            bad.append({'summary': 's', 'items': [{**good['items'][0], field: value}]})
+        for field, value in [('signal', '기타'), ('priority', '긴급')]:
+            bad.append(dict(good, items=[{**good['items'][0], field: value}]))
         for result in bad:
             with self.subTest(result=result), patch('server.integrations.transport.call', return_value=response(result)):
                 self.client.post(f'/reviews/{run.pk}/step/', {'cursor': '0'})
@@ -571,10 +677,11 @@ class ReviewFlowTests(TestCase):
         headers = {'HTTP_ACCEPT': 'application/json'}
         initial = self.client.get(f'/reviews/{run.pk}/status/', **headers)
         self.assertEqual(initial['Cache-Control'], 'no-store')
-        self.assertEqual(initial.json()['next_label'], '입장 살펴보기 · 임차인')
+        self.assertEqual(initial.json()['next_label'], '쟁점 정리')
+        self.assertEqual(initial.json()['next_phase'], 'discussion')
         with patch('server.integrations.transport.call', side_effect=report_response) as model:
             cursor = 0
-            for _ in range(13):
+            for _ in range(5):
                 result = self.client.post(f'/reviews/{run.pk}/step/', {'cursor': str(cursor)}, **headers)
                 self.assertEqual(result.status_code, 200)
                 self.assertGreater(result.json()['cursor'], cursor)
@@ -583,7 +690,8 @@ class ReviewFlowTests(TestCase):
                 cursor = result.json()['cursor']
             finished = self.client.post(f'/reviews/{run.pk}/step/', {'cursor': str(cursor)}, **headers)
             self.assertTrue(finished.json()['complete'])
-            self.assertEqual(model.call_count, 14)
+            self.assertIsNone(finished.json()['next_phase'])
+            self.assertEqual(model.call_count, 7)
         self.assertIn('내게 미치는 영향', finished.json()['steps_html'])
         self.assertIn('입장 차이 내용', finished.json()['issues_html'])
 
@@ -597,7 +705,7 @@ class ReviewFlowTests(TestCase):
         self.assertEqual(failed.status_code, 502)
         self.assertEqual(failed.json()['cursor'], 1)
         self.assertEqual(failed.json()['error'], 'timeout')
-        self.assertIn('지원 대상', failed.json()['steps_html'])
+        self.assertIn('지원 대상', failed.json()['issues_html'])
         stale = self.client.post(f'/reviews/{run.pk}/step/', {'cursor': '0'}, **headers)
         self.assertEqual(stale.status_code, 409)
         self.assertEqual(stale.json()['error'], 'timeout')
@@ -623,31 +731,32 @@ class ReviewFlowTests(TestCase):
         run = self.completed_run(selected='1')
         self.assertContains(self.client.get(f'/reviews/{run.pk}/?page=summary'), '먼저, 핵심부터.')
         discussion = self.client.get(f'/reviews/{run.pk}/?page=discussion')
-        self.assertContains(discussion, '대화에서 찾은 쟁점')
+        self.assertContains(discussion, '문서에서 찾은 쟁점')
         self.assertContains(discussion, '입장 차이 내용')
         self.assertContains(discussion, '시행일은 자명해 제외했다.')
-        self.assertContains(discussion, 'class="chat-message is-self" id="s2-i1"')
-        self.assertContains(discussion, 'class="chat-message" id="s1-i1"')
-        self.assertContains(discussion, 'id="s10-i1"')
-        self.assertNotContains(discussion, 'id="s11-i1"')
+        self.assertContains(discussion, 'class="issue-card" id="s1-i1"')
+        self.assertNotContains(discussion, 'id="s2-i1"')
         review = self.client.get(f'/reviews/{run.pk}/?page=review')
-        self.assertContains(review, 'id="s11-i1"')
+        self.assertContains(review, 'class="chat-message is-self" id="s2-i1"')
+        self.assertContains(review, 'class="chat-message" id="s3-i1"')
+        self.assertContains(review, 'id="s3-moderator"')
+        self.assertContains(review, 'id="s5-empty"')
         self.assertNotContains(review, 'id="s1-i1"')
         proposal = self.client.get(f'/reviews/{run.pk}/?page=proposal')
-        self.assertContains(proposal, 'id="s20-i1"')
+        self.assertContains(proposal, 'id="s6-i1"')
         self.assertContains(proposal, '내가 확인할 것')
         self.assertContains(proposal, '법률·세무 자문이 아니니')
         self.assertNotContains(proposal, '이렇게 바꿔보세요')
-        self.assertNotContains(proposal, 'id="s11-i1"')
+        self.assertNotContains(proposal, 'id="s2-i1"')
 
     def test_cautions_sort_by_priority_and_only_high_opens(self):
         run = self.create_run()
         self.client.post(f'/reviews/{run.pk}/select/', {'role': '0'})
-        self.run_steps(run, 13)
-        low, high = [{**ITEMS['final'], 'issue': name, 'priority': level, 'citation': CITATION, 'target_ids': ['s11-i1']}
+        self.run_steps(run, 5)
+        low, high = [{**ITEMS['final'], 'issue': name, 'priority': level, 'citation': CITATION, 'target_ids': ['s2-i1']}
                      for name, level in [('낮은 조항', '낮음'), ('높은 조항', '높음')]]
         with patch('server.integrations.transport.call', return_value=response({'summary': 's', 'items': [low, high]})):
-            self.client.post(f'/reviews/{run.pk}/step/', {'cursor': '19'})
+            self.client.post(f'/reviews/{run.pk}/step/', {'cursor': '5'})
         run.refresh_from_db()
         self.assertEqual([item['issue'] for item in run.steps[-1]['result']['items']], ['높은 조항', '낮은 조항'])
         page = self.client.get(f'/reviews/{run.pk}/?page=proposal')
@@ -655,9 +764,11 @@ class ReviewFlowTests(TestCase):
 
     def test_page_three_and_four_keep_their_layout(self):
         run = self.completed_run()
-        for page in ('discussion', 'review'):
+        markers = {'discussion': ('class="document-sidebar glass"', 'id="issue-cards"', 'class="run-controls"'),
+                   'review': ('class="document-sidebar glass"', 'class="chat-room glass"', 'class="chat-header"', 'id="current-issue"', 'class="run-controls"')}
+        for page, expected in markers.items():
             html = self.client.get(f'/reviews/{run.pk}/?page={page}')
-            for marker in ('class="document-sidebar glass"', 'class="chat-room glass"', 'class="chat-header"', 'class="run-controls"'):
+            for marker in expected:
                 self.assertContains(html, marker)
 
     def test_phase_boundaries_and_locked_next_page(self):
@@ -666,11 +777,13 @@ class ReviewFlowTests(TestCase):
         early = self.client.get(f'/reviews/{run.pk}/?page=review&start=1')
         self.assertNotContains(early, 'id="review-runner"')
         self.assertContains(early, '앞선 검토로 돌아가기')
-        self.run_steps(run, 10)
+        self.run_steps(run, 1)
         discussion = self.client.get(f'/reviews/{run.pk}/?page=discussion')
         self.assertNotContains(discussion, 'id="review-runner"')
         self.assertContains(discussion, '쟁점 토론 보기')
-        self.assertContains(self.client.get(f'/reviews/{run.pk}/?page=review'), 'data-phase="review" data-end="19"')
+        review = self.client.get(f'/reviews/{run.pk}/?page=review')
+        self.assertContains(review, 'id="review-runner"')
+        self.assertContains(review, 'data-phase="review"')
 
     def test_feedback_letters_for_each_role(self):
         run = self.completed_run()
@@ -688,7 +801,7 @@ class ReviewFlowTests(TestCase):
     def test_letters_wait_for_completion(self):
         run = self.create_run()
         self.client.post(f'/reviews/{run.pk}/select/', {'role': '0'})
-        self.run_steps(run, 5)
+        self.run_steps(run, 2)
         run.refresh_from_db()
         self.assertEqual(feedback_letters(run), [])
         self.assertEqual(self.client.get(f'/reviews/{run.pk}/feedback/0/').status_code, 404)
@@ -696,19 +809,39 @@ class ReviewFlowTests(TestCase):
     def plain(self, text='단일 답변'):
         return {'status': 'completed', 'output': [{'type': 'message', 'content': [{'type': 'output_text', 'text': text}]}]}
 
+    def baseline_replies(self, text='단일 답변'):
+        # The single prompt, then the call that moves its answer into the caution fields.
+        return [self.plain(text), response({'items': [formatted(text)]})]
+
     def test_baseline_is_the_literal_single_prompt_and_runs_once(self):
         run = self.completed_run(selected='1')
-        with patch('server.integrations.transport.call', return_value=self.plain()) as model:
+        with patch('server.integrations.transport.call', side_effect=self.baseline_replies()) as model:
             self.client.post(f'/reviews/{run.pk}/compare/run/')
             self.client.post(f'/reviews/{run.pk}/compare/run/')
-            self.assertEqual(model.call_count, 1)
-        payload = model.call_args.args[0]
+            self.assertEqual(model.call_count, 2)
+        payload, copy = [call.args[0] for call in model.call_args_list]
         self.assertIn('나는 임대인인데, 나한테 불리한 조항 찾아줘.', payload['instructions'])
         self.assertNotIn('text', payload)
         self.assertEqual(json.loads(payload['input'])['pages'][0]['text'], TEXT)
+        self.assertEqual(json.loads(copy['input']), {'baseline_answer': '단일 답변'})  # The copy never sees the document.
         run.refresh_from_db()
         self.assertEqual(run.baseline, '단일 답변')
+        self.assertEqual(run.baseline_items, [formatted('단일 답변')])
         self.assertIn(run.evaluation['pipeline'], ('A', 'B'))
+        self.assertEqual([call['purpose'] for call in run.calls[-2:]], ['model', 'format'])
+
+    def test_both_sides_share_one_layout(self):
+        run = self.completed_run()
+        with patch('server.integrations.transport.call', side_effect=self.baseline_replies()):
+            page = self.client.post(f'/reviews/{run.pk}/compare/run/', follow=True)
+        texts = re.findall(r'<p class="compare-text" tabindex="0">(.*?)</p>', page.content.decode(), re.S)
+        self.assertEqual(len(texts), 2)
+        for text in texts:
+            self.assertTrue(text.startswith('1. '))
+            self.assertIn('영향: ', text)
+        baseline = next(text for text in texts if '단일 답변' in text)
+        self.assertIn('원문: 임차인은 월세를 지원받는다.', baseline)  # No page in the answer, so none is shown.
+        self.assertNotIn('다른 입장:', baseline)  # A field the answer left empty is left out.
 
     def test_baseline_waits_for_completed_review(self):
         run = self.create_run()
@@ -724,7 +857,7 @@ class ReviewFlowTests(TestCase):
             page = self.client.post(f'/reviews/{run.pk}/compare/run/', follow=True)
         self.assertContains(page, 'timeout')
         self.assertContains(page, '비교 결과 만들기')
-        with patch('server.integrations.transport.call', return_value=self.plain()):
+        with patch('server.integrations.transport.call', side_effect=self.baseline_replies()):
             page = self.client.post(f'/reviews/{run.pk}/compare/run/', follow=True)
         self.assertContains(page, '단일 답변')
 
@@ -735,7 +868,7 @@ class ReviewFlowTests(TestCase):
             with self.subTest(side=side):
                 run.baseline, run.evaluation = '', {}
                 run.save()
-                with patch('server.integrations.transport.call', return_value=self.plain()), \
+                with patch('server.integrations.transport.call', side_effect=self.baseline_replies()), \
                         patch('server.agents.runner.random.choice', return_value=side):
                     page = self.client.post(f'/reviews/{run.pk}/compare/run/', follow=True)
                 self.assertNotContains(page, ' · PolicyLens')
@@ -771,6 +904,34 @@ class ReviewFlowTests(TestCase):
         self.assertEqual(title_of(text='본문 내용'), '정책 검토')
         self.assertNotContains(self.client.get('/'), 'name="title"')
 
+    def test_cautions_set_my_reading_against_another_roles(self):
+        run = self.create_run()
+        self.client.post(f'/reviews/{run.pk}/select/', {'role': '1'})
+        model, _ = self.run_steps(run, 6)
+        final = model.call_args_list[-1].args[0]
+        self.assertEqual(final['text']['format']['schema']['properties']['items']['items']['properties']['other_role']['enum'], ['임차인', '지자체'])
+        page = self.client.get(f'/reviews/{run.pk}/?page=proposal')
+        self.assertContains(page, '갈리는 표현</span> “월세를 지원받는다”')
+        self.assertContains(page, '내 해석')
+        self.assertContains(page, '지자체의 해석')
+        self.assertContains(page, '지자체는 재량으로 대상을 정할 수 있다고 읽는다')
+        run.refresh_from_db()
+        text = pipeline_text(run)
+        self.assertIn('내 해석: 기준이 없으면 탈락할 수 있다고 읽는다', text)
+        self.assertLess(text.index('갈리는 표현: "월세를 지원받는다"'), text.index('내 해석: '))
+        self.assertLess(text.index('내 해석: '), text.index('지자체의 해석: '))
+
+    def test_disputed_phrase_must_come_from_the_quoted_clause(self):
+        run = self.create_run()
+        self.client.post(f'/reviews/{run.pk}/select/', {'role': '0'})
+        self.run_steps(run, 5)
+        result = lambda phrase: response({'summary': 's', 'items': [{**ITEMS['final'], 'phrase': phrase, 'citation': CITATION, 'target_ids': ['s2-i1']}]})
+        with patch('server.integrations.transport.call', side_effect=[result('노동시장 취약계층'), result('월세를  지원받는다')]) as model:
+            self.client.post(f'/reviews/{run.pk}/step/', {'cursor': '5'})
+        run.refresh_from_db()
+        self.assertEqual(run.error, '')
+        self.assertIn('phrase', json.loads(model.call_args_list[1].args[0]['input'])['validation_error'])
+
     def test_caution_tags_carry_their_priority_for_styling(self):
         run = self.completed_run()
         priority = run.steps[-1]['result']['items'][0]['priority']
@@ -786,7 +947,7 @@ class ReviewFlowTests(TestCase):
 
     def test_compare_requires_owner_and_post(self):
         run = self.completed_run()
-        with patch('server.integrations.transport.call', return_value=self.plain()):
+        with patch('server.integrations.transport.call', side_effect=self.baseline_replies()):
             self.client.post(f'/reviews/{run.pk}/compare/run/')
         other = Client()
         self.assertEqual(other.get(f'/reviews/{run.pk}/compare/').status_code, 404)
@@ -825,11 +986,12 @@ class ReviewFlowTests(TestCase):
     def selected_run(self):
         run = self.create_run()
         self.client.post(f'/reviews/{run.pk}/select/', {'role': '0'})
+        self.run_steps(run, 1)  # The issues step reads no server data.
         run.refresh_from_db()
         return run
 
     def role_result(self, **source):
-        item = {**ITEMS['independent'], 'citation': CITATION, 'sources': [source] if source else []}
+        item = {**ITEMS['debate'], 'citation': CITATION, 'target_ids': ['s1-i1'], 'sources': [source] if source else []}
         return response({'summary': 's', 'items': [item]})
 
     GOOD_SOURCE = {'source_id': 'seoul-rent', 'page': 1, 'quote': '수혜자는 중복 지원을 받을 수 없다', 'finding': '중복 지원 불가'}
@@ -868,7 +1030,7 @@ class ReviewFlowTests(TestCase):
         self.add_source()
         run = self.selected_run()
         with patch('server.integrations.transport.call', side_effect=[self.tool_call(), self.role_result(**self.GOOD_SOURCE)]) as model:
-            self.client.post(f'/reviews/{run.pk}/step/', {'cursor': '0'})
+            self.client.post(f'/reviews/{run.pk}/step/', {'cursor': '1'})
         run.refresh_from_db()
         self.assertEqual(run.error, '')
         self.assertEqual(model.call_count, 2)
@@ -876,20 +1038,20 @@ class ReviewFlowTests(TestCase):
         self.assertEqual(model.call_args_list[0].args[0]['tool_choice'], 'required')
         self.assertNotIn('tool_choice', model.call_args_list[1].args[0])
         self.assertEqual(model.call_args_list[1].args[0]['input'][-1]['type'], 'function_call_output')
-        step = run.steps[0]
+        step = run.steps[1]
         self.assertEqual([{k: v for k, v in log.items() if k != 'elapsed_ms'} for log in step['research']],
                          [{'tool': 'search_sources', 'input': '청년월세 중복', 'found': 1}])
         self.assertGreaterEqual(step['research'][0]['elapsed_ms'], 0)
         self.assertEqual(step['result']['items'][0]['sources'][0]['title'], '국토부 청년월세 공고')
         Source.objects.all().delete()
-        self.assertContains(self.client.get(f'/reviews/{run.pk}/?page=discussion'), '지원 대상')
+        self.assertContains(self.client.get(f'/reviews/{run.pk}/?page=review'), '지원 대상')
 
     def test_step_limit_forces_an_answer_without_more_tools(self):
         self.add_source()
         run = self.selected_run()
         replies = [self.tool_call(call_id=f'c{n}') for n in range(MAX_TOOL_ROUNDS)] + [self.role_result()]
         with patch('server.integrations.transport.call', side_effect=replies) as model:
-            self.client.post(f'/reviews/{run.pk}/step/', {'cursor': '0'})
+            self.client.post(f'/reviews/{run.pk}/step/', {'cursor': '1'})
         run.refresh_from_db()
         self.assertEqual(run.error, '')
         self.assertEqual(model.call_count, MAX_TOOL_ROUNDS + 1)
@@ -900,7 +1062,7 @@ class ReviewFlowTests(TestCase):
         run = self.selected_run()
         bad = {**self.GOOD_SOURCE, 'quote': '문서에 없는 인용문입니다'}
         with patch('server.integrations.transport.call', side_effect=[self.tool_call(), self.role_result(**bad), self.role_result(**self.GOOD_SOURCE)]) as model:
-            self.client.post(f'/reviews/{run.pk}/step/', {'cursor': '0'})
+            self.client.post(f'/reviews/{run.pk}/step/', {'cursor': '1'})
         run.refresh_from_db()
         self.assertEqual(run.error, '')
         repair = model.call_args.args[0]
@@ -908,67 +1070,54 @@ class ReviewFlowTests(TestCase):
         self.assertEqual(json.loads(repair['input'])['server_sources'][0]['source_id'], 'seoul-rent')
         run = self.selected_run()
         with patch('server.integrations.transport.call', return_value=self.role_result(**self.GOOD_SOURCE)):
-            self.client.post(f'/reviews/{run.pk}/step/', {'cursor': '0'})
+            self.client.post(f'/reviews/{run.pk}/step/', {'cursor': '1'})
         run.refresh_from_db()
         self.assertIn('도구로 읽지 않은', run.error)
 
-    def test_role_research_stays_private_until_issues(self):
+    def unwrapped(self, payload, issues=1):
+        if isinstance(payload['input'], list):
+            payload = {**payload, 'input': payload['input'][0]['content']}
+        return response(result_for(payload, issues))
+
+    def test_moderator_does_not_search_and_each_roles_first_statement_must(self):
         self.add_source()
         run = self.selected_run()
         with patch('server.integrations.transport.call', side_effect=[self.tool_call(), self.role_result(**self.GOOD_SOURCE)]):
-            self.client.post(f'/reviews/{run.pk}/step/', {'cursor': '0'})
+            self.client.post(f'/reviews/{run.pk}/step/', {'cursor': '1'})
         seen = []
         def reply(payload, key):
             seen.append(payload)
-            return response(result_for({**payload, 'input': payload['input'][0]['content'] if isinstance(payload['input'], list) else payload['input']}))
+            return self.unwrapped(payload)
         with patch('server.integrations.transport.call', side_effect=reply):
-            for cursor in range(1, 10):
-                self.client.post(f'/reviews/{run.pk}/step/', {'cursor': str(cursor)})
-        self.assertNotIn('국토부', seen[0]['input'][0]['content'])
-        self.assertNotIn('tools', seen[8])  # The moderator only weighs what the roles brought.
-        self.assertIn('국토부', seen[8]['input'])
-        self.assertNotIn('"research"', seen[8]['input'])
+            self.client.post(f'/reviews/{run.pk}/step/', {'cursor': '2'})
+        self.assertEqual(stage_of(seen[0]), 'moderator')
+        self.assertNotIn('tools', seen[0])
+        self.assertIn('국토부', seen[0]['input'])  # What a role found is shared from the debate on.
+        self.assertNotIn('"research"', seen[0]['input'])
+        self.assertEqual(seen[1]['tool_choice'], 'required')
 
-    def test_debate_searches_only_when_the_model_asks(self):
+    def test_a_roles_later_statement_searches_only_when_the_model_asks(self):
         self.add_source()
-        run = self.selected_run()
-        self.run_steps_with_tools(run, 10)
-        seen = []
-        def reply(payload, key):
-            seen.append(payload)
-            return response(result_for({**payload, 'input': payload['input'][0]['content']}))
-        with patch('server.integrations.transport.call', side_effect=reply):
-            self.client.post(f'/reviews/{run.pk}/step/', {'cursor': '10'})
-        self.assertIn('tools', seen[0])
-        self.assertNotIn('tool_choice', seen[0])
-
-    def test_only_a_roles_first_turn_must_search(self):
-        self.add_source()
-        run = self.selected_run()
-        self.run_steps_with_tools(run, 3)
-        seen = []
-        def reply(payload, key):
-            seen.append(payload)
-            return response(result_for({**payload, 'input': payload['input'][0]['content']}))
-        with patch('server.integrations.transport.call', side_effect=reply):
-            self.client.post(f'/reviews/{run.pk}/step/', {'cursor': '3'})
-        self.assertIn('tools', seen[0])
-        self.assertNotIn('tool_choice', seen[0])
-
-    def run_steps_with_tools(self, run, count):
-        def reply(payload, key):
-            if isinstance(payload['input'], list):
-                payload = {**payload, 'input': payload['input'][0]['content']}
-            return response(result_for(payload))
-        with patch('server.integrations.transport.call', side_effect=reply):
-            for _ in range(count):
+        run = self.create_run()
+        self.client.post(f'/reviews/{run.pk}/select/', {'role': '0'})
+        with patch('server.integrations.transport.call', side_effect=lambda payload, key: self.unwrapped(payload, 2)):
+            for _ in range(4):
                 run.refresh_from_db()
                 self.client.post(f'/reviews/{run.pk}/step/', {'cursor': str(len(run.steps))})
+        seen = []
+        def reply(payload, key):
+            seen.append(payload)
+            return self.unwrapped(payload, 2)
+        with patch('server.integrations.transport.call', side_effect=reply):
+            self.client.post(f'/reviews/{run.pk}/step/', {'cursor': '4'})  # The user's role opens the second issue.
+        self.assertEqual(json.loads(seen[0]['input'][0]['content'])['acting_role']['name'], '임차인')
+        self.assertIn('tools', seen[0])
+        self.assertNotIn('tool_choice', seen[0])
 
     def test_empty_server_data_and_old_runs_stay_on_the_document(self):
         run = self.selected_run()
         with patch('server.integrations.transport.call', return_value=self.role_result()) as model:
-            self.client.post(f'/reviews/{run.pk}/step/', {'cursor': '0'})
+            self.client.post(f'/reviews/{run.pk}/step/', {'cursor': '1'})
         self.assertNotIn('tools', model.call_args.args[0])
         self.assertIsInstance(model.call_args.args[0]['input'], str)
         self.add_source()
@@ -976,13 +1125,13 @@ class ReviewFlowTests(TestCase):
         run.prompts.pop('sources')
         run.save()
         with patch('server.integrations.transport.call', return_value=self.role_result()) as model:
-            self.client.post(f'/reviews/{run.pk}/step/', {'cursor': '0'})
+            self.client.post(f'/reviews/{run.pk}/step/', {'cursor': '1'})
         self.assertNotIn('tools', model.call_args.args[0])
 
     def test_final_card_and_letter_show_server_evidence(self):
         run = self.completed_run()
         source = {**self.GOOD_SOURCE, 'title': '국토부 청년월세 공고', 'version': '2026년 1회차', 'issuer': '국토교통부', 'kind': '정책', 'source_url': 'https://example.go.kr/1'}
-        for stage in (-1, 12):
+        for stage in (-1, 3):
             run.steps[stage]['result']['items'][0]['sources'] = [source]
         run.steps[-1]['research'] = [{'tool': 'search_sources', 'input': '청년월세 중복', 'found': 1}]
         run.save()
@@ -1056,20 +1205,25 @@ class ReviewFlowTests(TestCase):
         self.assertIn('error', read_source([TEXT], limited, 'after', 1))
         self.assertEqual(len(search_sources([TEXT], new_research(), '청년월세', 'all')['results']), 4)
 
+    def issues_result(self):
+        return response({'summary': 's', 'items': [{**ITEMS['issues'], 'citation': CITATION}], 'excluded': []})
+
     def test_each_call_is_logged_even_when_it_fails(self):
-        run = self.selected_run()
-        ok = dict(self.role_result(), usage={'total_tokens': 123})
+        run = self.create_run()
+        self.client.post(f'/reviews/{run.pk}/select/', {'role': '0'})
+        ok = dict(self.issues_result(), usage={'total_tokens': 123})
         with patch('server.integrations.transport.call', return_value=ok):
             self.client.post(f'/reviews/{run.pk}/step/', {'cursor': '0'})
         with patch('server.integrations.transport.call', side_effect=TimeoutError('timeout')):
             self.client.post(f'/reviews/{run.pk}/step/', {'cursor': '1'})
         run.refresh_from_db()
         self.assertEqual(run.calls[-3]['tokens'], 123)
-        self.assertEqual([call['error'] for call in run.calls[-2:]], ['TimeoutError', 'TimeoutError'])
+        self.assertEqual([(call['error'], call['role']) for call in run.calls[-2:]], [('TimeoutError', 0), ('TimeoutError', 0)])
 
     def test_one_stalled_call_is_retried_without_stopping_the_step(self):
-        run = self.selected_run()
-        with patch('server.integrations.transport.call', side_effect=[TimeoutError('stall'), self.role_result()]) as model:
+        run = self.create_run()
+        self.client.post(f'/reviews/{run.pk}/select/', {'role': '0'})
+        with patch('server.integrations.transport.call', side_effect=[TimeoutError('stall'), self.issues_result()]) as model:
             self.client.post(f'/reviews/{run.pk}/step/', {'cursor': '0'})
         run.refresh_from_db()
         self.assertEqual((model.call_count, run.error, len(run.steps)), (2, '', 1))
@@ -1121,7 +1275,7 @@ class ReviewFlowTests(TestCase):
 
         self.assertEqual(saved['as_of'], '2026-04-30')
         self.assertEqual(saved['baseline'], '기준선')
-        self.assertEqual(len(saved['steps']), 20)
+        self.assertEqual([step['stage'] for step in saved['steps']], ['issues', 'debate', 'debate', 'debate', 'close', 'final'])
         self.assertEqual(ReviewRun.objects.count(), before)
 
 
@@ -1143,6 +1297,7 @@ class LanguageTests(TestCase):
     run_steps = ReviewFlowTests.run_steps
     completed_run = ReviewFlowTests.completed_run
     plain = ReviewFlowTests.plain
+    baseline_replies = ReviewFlowTests.baseline_replies
     run_to_end = ReviewFlowTests.run_to_end
 
     def english_run(self, **extra):
@@ -1150,7 +1305,7 @@ class LanguageTests(TestCase):
         return self.completed_run(EN_ANALYSIS, **extra)
 
     def leftover_korean(self, html, run):
-        for text in sorted(strings([run.title, run.pages, run.analysis, run.steps, run.baseline, run.evaluation]), key=len, reverse=True):
+        for text in sorted(strings([run.title, run.pages, run.analysis, run.personas, run.steps, run.baseline, run.baseline_items, run.evaluation]), key=len, reverse=True):
             html = html.replace(text, '')
         return re.findall(r'[가-힣]+', html)
 
@@ -1203,7 +1358,7 @@ class LanguageTests(TestCase):
         run = self.create_run(EN_ANALYSIS)
         self.client.post(f'/reviews/{run.pk}/select/', {'role': '0'})
         state = self.client.get(f'/reviews/{run.pk}/status/', HTTP_ACCEPT='application/json').json()
-        self.assertEqual(state['next_label'], 'Reading each position · Tenant')
+        self.assertEqual(state['next_label'], 'Sorting the issues')
         self.run_to_end(run)
         run.refresh_from_db()
         with translation.override('en'):
@@ -1214,9 +1369,9 @@ class LanguageTests(TestCase):
 
     def test_english_run_compares_with_the_english_single_prompt(self):
         run = self.english_run(selected='1')
-        with patch('server.integrations.transport.call', return_value=self.plain('Single answer')) as model:
+        with patch('server.integrations.transport.call', side_effect=self.baseline_replies('Single answer')) as model:
             page = self.client.post(f'/reviews/{run.pk}/compare/run/', follow=True)
-        self.assertIn("I'm a Landlord", model.call_args.args[0]['instructions'])
+        self.assertIn("I'm a Landlord", model.call_args_list[0].args[0]['instructions'])
         run.refresh_from_db()
         # The radio's value is the stored Korean answer; only its label is translated.
         self.assertEqual(self.leftover_korean(page.content.decode().replace('value="비슷함"', ''), run), [])
@@ -1230,16 +1385,17 @@ class LanguageTests(TestCase):
         run = self.create_run(EN_ANALYSIS)
         self.client.post(f'/reviews/{run.pk}/select/', {'role': '0'})
         item = lambda stage, **extra: {**ITEMS[stage], 'citation': CITATION, **extra}
-        with patch('server.integrations.transport.call', return_value=response({'summary': 's', 'items': [item('independent')] * 2})):
+        four = {'summary': 's', 'items': [item('issues')] * 4, 'excluded': ['x']}
+        with patch('server.integrations.transport.call', return_value=response(four)):
             self.client.post(f'/reviews/{run.pk}/step/', {'cursor': '0'})
         run.refresh_from_db()
-        self.assertIn('Write only one item per turn.', run.error)
-        self.run_steps(run, 9)
-        four = {'summary': 's', 'items': [item('issues', target_ids=['s1-i1'])] * 4, 'excluded': ['x']}
-        with patch('server.integrations.transport.call', return_value=response(four)):
-            self.client.post(f'/reviews/{run.pk}/step/', {'cursor': '9'})
-        run.refresh_from_db()
         self.assertIn('Choose at most 3 issues.', run.error)
+        self.run_steps(run, 1)
+        two = {'summary': 's', 'items': [item('debate', target_ids=['s1-i1'])] * 2}
+        with patch('server.integrations.transport.call', return_value=response(two)):
+            self.client.post(f'/reviews/{run.pk}/step/', {'cursor': '1'})
+        run.refresh_from_db()
+        self.assertIn('Write only one item per turn.', run.error)
 
     def test_english_error_messages(self):
         self.client.get('/?lang=en')

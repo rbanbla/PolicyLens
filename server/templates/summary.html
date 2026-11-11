@@ -33,8 +33,9 @@
 </label>
 <p class="role-impact">{% if role.basis == 'implied' %}{% trans '문서에 직접 언급되지 않은 역할이에요.' %} {% endif %}{{ role.impact }}</p>
 </article>{% endfor %}</div>
+{% if run.personas|length %}<p class="microcopy">{% trans '역할의 시각은 NVIDIA Nemotron-Personas-Korea(CC BY 4.0)의 합성 페르소나를 참고했어요.' %}</p>{% endif %}
 {% if run.analysis.other_stakeholders %}<p class="microcopy">{% trans '함께 영향을 받는 사람들' %} · {{ run.analysis.other_stakeholders|join:', ' }}</p>{% endif %}
-<div class="page-action">{% if selected %}<a class="primary" href="?page=discussion">{% trans '입장 나누기 보기' %} <span>→</span>
+<div class="page-action">{% if selected %}<a class="primary" href="?page=discussion">{% trans '쟁점 찾기 보기' %} <span>→</span>
 </a>{% else %}<span class="subtle">{% trans '선택한 입장에서 주의할 조항을 알려드려요.' %}</span>
 <button class="primary">{% trans '이 입장에서 살펴보기' %} <span>→</span>
 </button>{% endif %}</div>

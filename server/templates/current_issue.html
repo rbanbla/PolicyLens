@@ -1,0 +1,2 @@
+{% load i18n %}{% if current.ended %}<span class="eyebrow">{% trans '토론을 마쳤어요.' %}</span>{% elif current %}<span class="eyebrow">{% trans '지금 토론 중인 쟁점' %}</span>
+<strong>{% blocktranslate with number=current.number|stringformat:'02d' %}쟁점 {{ number }}{% endblocktranslate %} · {{ current.issue }}</strong>{% endif %}
