@@ -7,6 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.conf import settings
+from django.core.cache import cache
 from django.core.management import call_command
 from django.test import SimpleTestCase, TestCase, Client
 from django.utils import translation
@@ -92,6 +93,16 @@ class PlanTests(SimpleTestCase):
         steps = [step('independent', r, 1) for _ in range(3) for r in range(3)] + [step('issues', None, 2)]
         self.assertEqual([is_skipped(steps, 10 + i, 3) for i in range(9)], [False] * 6 + [True] * 3)
         self.assertFalse(is_skipped(steps, 9, 3))
+
+
+class ProviderTests(SimpleTestCase):
+    def test_vibehub_model_key_is_used_when_openai_settings_are_absent(self):
+        hub = {'MINIAPP_LLM_API_KEY': 'hub-key', 'MINIAPP_LLM_BASE_URL': 'https://hub.example/v1/', 'POLICYLENS_API_MODE': 'chat_completions'}
+        with patch('server.integrations.transport.dotenv_values', return_value={}), patch.dict('os.environ', hub, clear=True):
+            self.assertEqual(transport.configuration()[0], 'hub-key')
+            self.assertEqual(transport.provider(), ('https://hub.example/v1', 'chat_completions'))
+            with patch.dict('os.environ', {'OPENAI_API_KEY': 'own-key'}):
+                self.assertEqual(transport.configuration()[0], 'own-key')
 
 
 class ReviewFlowTests(TestCase):
@@ -771,6 +782,11 @@ class ReviewFlowTests(TestCase):
         self.assertEqual(title_of(text='본문 내용'), '정책 검토')
         self.assertNotContains(self.client.get('/'), 'name="title"')
 
+    def test_nul_in_document_text_is_dropped_before_saving(self):
+        with patch('server.integrations.transport.call', side_effect=report_response):
+            self.client.post('/', {'text': '본문\x00 내용'})
+        self.assertEqual(ReviewRun.objects.latest('pk').pages, ['본문 내용'])
+
     def test_caution_tags_carry_their_priority_for_styling(self):
         run = self.completed_run()
         priority = run.steps[-1]['result']['items'][0]['priority']
@@ -1110,13 +1126,12 @@ class ReviewFlowTests(TestCase):
             with patch('server.integrations.transport.call', side_effect=reply):
                 call_command('evaluate', 'doc', '--no-sources', stdout=StringIO())
             saved = json.loads((base / 'reviewed' / 'runs' / 'doc-document.json').read_text(encoding='utf-8'))
-            with patch('server.integrations.transport.call', side_effect=reply) as paired_model:
-                call_command('evaluate', 'doc', '--structured-facts', '--reference-run', str(base / 'reviewed' / 'runs' / 'doc-document.json'), stdout=StringIO())
-            paired = json.loads((base / 'reviewed' / 'runs' / 'doc-structured.json').read_text(encoding='utf-8'))
+            with patch('server.integrations.transport.call', side_effect=reply):
+                call_command('evaluate', 'doc', '--reference-run', str(base / 'reviewed' / 'runs' / 'doc-document.json'), stdout=StringIO())
+            paired = json.loads((base / 'reviewed' / 'runs' / 'doc-sources.json').read_text(encoding='utf-8'))
             self.assertEqual(paired['analysis'], saved['analysis'])
             self.assertEqual(paired['baseline'], saved['baseline'])
             self.assertTrue(paired['reused_analysis_and_baseline'])
-            self.assertTrue(paired['structured_facts'])
             self.assertFalse(any(c['stage'] in ('analysis', 'baseline') for c in paired['calls']))
 
         self.assertEqual(saved['as_of'], '2026-04-30')
@@ -1255,7 +1270,11 @@ def news_item(news_id, title, approved, body='<p>본문&nbsp;내용</p><br><p>�
 
 class LatestPolicyTests(TestCase):
     from datetime import datetime
-    setUp = ReviewFlowTests.setUp
+
+    def setUp(self):
+        ReviewFlowTests.setUp(self)
+        cache.clear()
+
     POLICIES = [{'id': '2', 'title': '청년 월세 지원 확대', 'category': '국토교통부', 'hue': 10, 'text': TEXT,
                  'approved': datetime(2026, 11, 6, 16, 33)},
                 {'id': '1', 'title': '청년 첫 취업지원제 신설', 'category': '고용노동부', 'hue': 200, 'text': '다른 본문',
@@ -1278,22 +1297,26 @@ class LatestPolicyTests(TestCase):
         self.assertEqual(policies[1]['hue'], policies[2]['hue'])
         self.assertNotEqual(policies[0]['hue'], policies[1]['hue'])
 
-    def test_home_offers_the_latest_policies_as_title_cards(self):
-        self.assertContains(self.client.get('/'), '살펴볼 문서가 없으신가요?')
-        self.assertContains(self.client.get('/'), 'href="?latest=1"')
-        self.assertNotContains(self.client.get('/'), 'data-policy-dialog')
-        with patch('server.views.newest_youth_policies', return_value=self.POLICIES):
-            page = self.client.get('/?latest=1')
-        self.assertContains(page, '<dialog class="glass policy-dialog" data-policy-dialog')
-        # Picking a card only opens its full text; starting needs the confirm button.
-        self.assertContains(page, '<button type="button" class="policy-card" data-show="2">')
+    def test_home_loads_the_latest_policies_after_the_page(self):
+        with patch('server.views.newest_youth_policies') as fetch:
+            page = self.client.get('/')
+        fetch.assert_not_called()  # A slow briefing API must not hold up the upload form.
+        self.assertContains(page, 'data-latest data-url="/latest/"')
+        self.assertContains(page, '<form id="latest-start" method="post" hidden')
+
+    def test_latest_shows_sliding_cards_from_a_cached_list(self):
+        with patch('server.views.newest_youth_policies', return_value=self.POLICIES) as fetch:
+            page = self.client.get('/latest/')
+            self.client.get('/latest/')
+        self.assertEqual(fetch.call_count, 1)
+        self.assertContains(page, '살펴볼 문서가 없으신가요?')
+        self.assertContains(page, 'data-latest-slider')
         self.assertContains(page, '<span class="policy-meta"><span class="policy-category" style="--hue:10">국토교통부</span><small>2026.11.06</small></span>')
         self.assertContains(page, '<strong>청년 월세 지원 확대</strong>')
-        self.assertContains(page, 'data-policy-detail="1" data-busy=')
+        # Picking a card only opens its full text; starting needs the confirm button.
         self.assertContains(page, '<div class="policy-text">다른 본문</div>')
-        self.assertContains(page, '이 정책으로 시작할까요?')
-        self.assertContains(page, 'data-back>')
-        self.assertContains(page, '<button class="primary" name="policy" value="2">')
+        self.assertContains(page, '<button class="primary" form="latest-start" name="policy" value="2">')
+        self.assertContains(page, 'data-dot', count=2)
 
     def test_picked_policy_becomes_the_reviewed_document(self):
         with patch('server.views.newest_youth_policies', return_value=self.POLICIES), \
@@ -1308,8 +1331,9 @@ class LatestPolicyTests(TestCase):
             page = self.client.post('/', {'policy': '99'})
         self.assertContains(page, '선택한 정책을 다시 찾지 못했습니다')
         self.assertFalse(ReviewRun.objects.exists())
+        cache.clear()
+        # The picker is optional: a failed or empty fetch leaves nothing on the home page, and a failure is not cached.
         with patch('server.views.newest_youth_policies', side_effect=OSError('down')):
-            page = self.client.get('/?latest=1')
-        self.assertContains(page, '최신 청년 정책을 불러오지 못했습니다')
+            self.assertEqual(self.client.get('/latest/').content.strip(), b'')
         with patch('server.views.newest_youth_policies', return_value=[]):
-            self.assertContains(self.client.get('/?latest=1'), '최근 한 달 동안 청년 정책 소식이 없어요.')
+            self.assertEqual(self.client.get('/latest/').content.strip(), b'')

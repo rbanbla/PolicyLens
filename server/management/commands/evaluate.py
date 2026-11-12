@@ -1,3 +1,4 @@
+import hashlib
 import json
 from datetime import date
 from pathlib import Path
@@ -7,9 +8,12 @@ from server.agents.planning import role_count
 from server.agents.progress import is_complete
 from server.agents.runner import advance, analyze, baseline, create_run
 from server.models import ReviewRun
-from server.agents.tools.policy_facts import digest
 from server.agents.schemas import ANALYSIS
 from server.agents.validation import validate_shape, validate_roles
+
+
+def digest(value):
+    return hashlib.sha256(json.dumps(value, sort_keys=True, ensure_ascii=False, default=str, allow_nan=False).encode()).hexdigest()
 
 
 class Command(BaseCommand):
@@ -19,12 +23,9 @@ class Command(BaseCommand):
         parser.add_argument('doc_id')
         parser.add_argument('--role', type=int, default=0, help='입장을 맡을 역할 번호')
         parser.add_argument('--reference-run', help='같은 문서·모델·프롬프트 실행의 역할 분석과 기준선을 재사용')
-        parser.add_argument('--structured-facts', action='store_true', help='검수된 구조화 정책 사실을 함께 조회')
         parser.add_argument('--no-sources', action='store_true', help='서버 자료 없이 문서만 읽는 조건')
 
-    def handle(self, doc_id, role, no_sources, structured_facts=False, reference_run=None, **options):
-        if no_sources and structured_facts:
-            raise CommandError('--no-sources와 --structured-facts는 함께 사용할 수 없습니다.')
+    def handle(self, doc_id, role, no_sources, reference_run=None, **options):
         data = settings.BASE_DIR / 'data'
         docs = [json.loads(line) for line in (data / 'reviewed' / 'documents.jsonl').read_text(encoding='utf-8').splitlines()]
         doc = next((doc for doc in docs if doc['doc_id'] == doc_id), None)
@@ -49,7 +50,6 @@ class Command(BaseCommand):
         prompt_hash = digest(run.prompts)
         provider_hash = digest(run.provider)
         run.as_of = date.fromisoformat(doc['published_on'])
-        run.structured_facts = structured_facts
         if no_sources:
             run.prompts.pop('sources')
         run.save()
@@ -71,12 +71,12 @@ class Command(BaseCommand):
                 run.baseline = reference['baseline']
             else:
                 baseline(run)
-            arm = 'document' if no_sources else 'structured' if structured_facts else 'sources'
+            arm = 'document' if no_sources else 'sources'
             folder = data / 'reviewed' / 'runs'
             folder.mkdir(exist_ok=True)
             path = folder / f'{doc_id}-{arm}.json'
             path.write_text(json.dumps({'doc_id': doc_id, 'arm': arm, 'as_of': doc['published_on'], 'model': run.model,
-                                        'structured_facts': structured_facts, 'document_hash': digest(pages), 'prompt_hash': prompt_hash,
+                                        'document_hash': digest(pages), 'prompt_hash': prompt_hash,
                                         'provider_hash': provider_hash, 'reused_analysis_and_baseline': bool(reference), 'analysis': run.analysis, 'selected_role': run.selected_role, 'steps': run.steps,
                                         'baseline': run.baseline, 'calls': run.calls}, ensure_ascii=False, indent=1), encoding='utf-8')
         finally:

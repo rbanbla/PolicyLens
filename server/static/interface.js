@@ -34,30 +34,56 @@
 })();
 
 (() => {
-  const dialog = document.querySelector('[data-policy-dialog]');
-  if (!dialog) return;
-  const list = dialog.querySelector('[data-policy-list]');
-  const details = dialog.querySelectorAll('[data-policy-detail]');
-  // An empty id goes back to the list; any other id shows that policy's full text.
-  function show(id) {
-    list.hidden = Boolean(id);
-    details.forEach(detail => {detail.hidden = detail.dataset.policyDetail !== id;});
-    dialog.scrollTop = 0;
-  }
-  dialog.addEventListener('click', event => {
-    const card = event.target.closest('[data-show]');
-    if (card) show(card.dataset.show);
-    if (event.target.closest('[data-back]')) show('');
-  });
-  details.forEach(form => form.addEventListener('submit', event => {
+  const box = document.querySelector('[data-latest]');
+  if (!box) return;
+  const start = document.getElementById('latest-start');
+  start.addEventListener('submit', event => {
     // Block a second start while the first one is analyzed; disabling the button would drop its value.
-    if (form.dataset.sent) return event.preventDefault();
-    form.dataset.sent = '1';
-    form.querySelector('[data-policy-status]').textContent = form.dataset.busy;
-  }));
-  // Closing returns to the plain home address, so a reload does not reopen the popup.
-  dialog.addEventListener('close', () => history.replaceState(null, '', location.pathname));
-  dialog.showModal();
+    if (start.dataset.sent) return event.preventDefault();
+    start.dataset.sent = '1';
+    event.submitter.textContent = start.dataset.busy;
+  });
+  // Loaded after the page, so a slow briefing API never holds up the upload form.
+  fetch(box.dataset.url, {credentials: 'same-origin'})
+    .then(response => response.ok ? response.text() : '')
+    .then(html => {
+      box.innerHTML = html;
+      const slider = box.querySelector('[data-latest-slider]');
+      if (slider) slide(slider);
+    })
+    .catch(() => {});
+
+  function slide(slider) {
+    const track = slider.querySelector('.latest-track');
+    const slides = [...slider.querySelectorAll('[data-slide]')];
+    const dots = [...slider.querySelectorAll('[data-dot]')];
+    const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let index = 0;
+    function open(slide, show) {
+      slide.querySelector('[data-open]').setAttribute('aria-expanded', show);
+      slide.querySelector('.latest-detail').hidden = !show;
+    }
+    function go(next) {
+      slides.forEach(slide => open(slide, false));
+      index = (next + slides.length) % slides.length;
+      track.style.transform = `translateX(${-100 * index}%)`;
+      slides.forEach((slide, i) => {slide.inert = i !== index;});  // Off-screen cards stay out of the tab order.
+      dots.forEach((dot, i) => dot.setAttribute('aria-current', i === index));
+    }
+    slider.addEventListener('click', event => {
+      const card = event.target.closest('[data-open]');
+      if (card) open(card.closest('[data-slide]'), card.getAttribute('aria-expanded') !== 'true');
+      if (event.target.closest('[data-close]')) open(event.target.closest('[data-slide]'), false);
+      const dot = event.target.closest('[data-dot]');
+      if (dot) go(dots.indexOf(dot));
+    });
+    go(0);
+    if (still || slides.length < 2) return;
+    setInterval(() => {
+      // Pointing at it, moving through it by keyboard, or reading an opened card holds the slide where it is.
+      if (!slider.matches(':hover') && !slider.querySelector(':focus-visible, [aria-expanded="true"]')) go(index + 1);
+    }, 4000);
+  }
 })();
 
 (() => {

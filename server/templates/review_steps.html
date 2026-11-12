@@ -28,7 +28,6 @@
 <summary>{% trans '다른 자료에서 확인한 내용' %}</summary>
 {% for source in item.sources %}<p>{{ source.finding }}</p>
 {% trans source.kind as kind %}<blockquote>{{ source.quote }}<small>{% blocktranslate with title=source.title version=source.version page=source.page %}{{ title }} · {{ version }} · {{ page }}쪽 · {{ kind }} 자료{% endblocktranslate %}</small></blockquote>
-{% for fact in source.policy_facts %}<p class="subtle">{% trans '정책 적용 버전' %}: {{ fact.policy_title }} · {{ fact.version }} · {{ fact.effective_from }}{% if fact.effective_until %} ~ {{ fact.effective_until }}{% endif %}</p><p class="subtle">{% trans '개별 조건의 근거입니다. 전체 신청 자격과 예외는 추가 확인이 필요합니다.' %}</p>{% endfor %}
 {% if source.source_url %}<a class="text-link" href="{{ source.source_url }}" target="_blank" rel="noopener">{% trans '원문 보기' %} ↗</a>{% endif %}{% endfor %}
 </details>{% endif %}
 <details class="source">

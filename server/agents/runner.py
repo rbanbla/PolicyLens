@@ -17,8 +17,9 @@ MAX_TOOL_ROUNDS = 3
 def create_run(owner, title, pages, language='ko'):
     _, model = transport.configuration()
     return ReviewRun.objects.create(
-        owner=owner, title=title.strip()[:200] or gettext('정책 검토'), pages=pages, language=language,
-        model=model, provider=transport.identity(), structured_facts=True,
+        # PostgreSQL cannot store NUL, which PDF text sometimes carries; clean() already ignores it in quotes.
+        owner=owner, title=title.strip()[:200] or gettext('정책 검토'), pages=[page.replace('\x00', '') for page in pages], language=language,
+        model=model, provider=transport.identity(),
         prompts={p.stem: p.read_text(encoding='utf-8') for p in (settings.BASE_DIR / 'prompts').glob('*.md')})
 
 def ready_key(run):
@@ -125,7 +126,7 @@ def advance(run):
     targets = reference_ids(context, stage, role)
     data = stage_input(run, stage, role, context, targets, turn_of(len(run.steps), count))
     required = [target for claim in data.get('assigned_claims', []) for target in claim.values() if target]
-    research = new_research(run.as_of, structured_facts=run.structured_facts) if uses_sources(run, stage) else None
+    research = new_research(run.as_of) if uses_sources(run, stage) else None
     def check(output):
         validate_report(run.pages, output, stage, targets, required)
         check_sources(output, research['opened'] if research else {})
@@ -134,7 +135,7 @@ def advance(run):
     result = generate(run, stage, data, report(stage, targets), check, research, search_first)
     if stage in ('issues', 'final'):
         result['items'].sort(key=lambda item: PRIORITY_ORDER.index(item['priority']))
-    steps = run.steps + [{'stage': stage, 'role': role, 'result': result, **({'research': research['log'], 'policy_facts': research['facts']} if research else {})}]
+    steps = run.steps + [{'stage': stage, 'role': role, 'result': result, **({'research': research['log']} if research else {})}]
     # Turns with nothing left to do are recorded now, so the cursor always rests on a turn that needs a model call.
     while len(steps) < len(plan) and is_skipped(steps, len(steps), count):
         steps.append({'stage': plan[len(steps)][0], 'role': plan[len(steps)][1], 'result': {'summary': '', 'items': []}, 'skipped': True})

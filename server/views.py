@@ -1,4 +1,5 @@
 from pathlib import Path
+from django.core.cache import cache
 from django.db import transaction, OperationalError
 from django.http import Http404, HttpResponse, JsonResponse
 from django.template.loader import render_to_string
@@ -26,17 +27,35 @@ def attempt(run, action):
         run.save(update_fields=['error', 'calls'])
 
 
+def latest_policies():
+    # Cached so a home visit does not call the briefing API each time; the start check reads the same list.
+    policies = cache.get('latest_policies')
+    if policies is None:
+        policies = newest_youth_policies()
+        cache.set('latest_policies', policies, 30 * 60)
+    return policies
+
+
+@require_GET
+def latest(request):
+    try:
+        policies = latest_policies()
+    except (ValueError, OSError):
+        policies = []  # The picker is optional; the home page goes on without it.
+    return render(request, 'latest_policies.html', {'policies': policies})
+
+
 def home(request):
     if request.GET.get('lang') in ('ko', 'en'):
         request.session['language'] = request.GET['lang']
         return redirect('home')
-    error, policies = '', None
+    error = ''
     if request.method == 'POST':
         try:
             upload = request.FILES.get('document')
             # A picked policy is fetched again on the server, so the run stores the source text, not a client copy.
             picked = request.POST.get('policy')
-            policy = next((p for p in newest_youth_policies() if p['id'] == picked), None) if picked else None
+            policy = next((p for p in latest_policies() if p['id'] == picked), None) if picked else None
             if picked and not policy:
                 raise ValueError(_('선택한 정책을 다시 찾지 못했습니다. 목록을 새로 불러와 주세요.'))
             pages = read_pages(None if policy else upload, policy['text'] if policy else request.POST.get('text', ''))
@@ -49,12 +68,7 @@ def home(request):
         else:
             attempt(run, analyze)
             return redirect('review', pk=run.pk)
-    elif request.GET.get('latest'):
-        try:
-            policies = newest_youth_policies()
-        except (ValueError, OSError):
-            error = _('최신 청년 정책을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.')
-    return render(request, 'home.html', {'error': error, 'policies': policies})
+    return render(request, 'home.html', {'error': error})
 
 def owned(request, pk):
     run = get_object_or_404(ReviewRun, pk=pk, owner=request.session.session_key or '')

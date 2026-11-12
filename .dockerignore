@@ -1,0 +1,6 @@
+.env
+.venv
+.git
+*.sqlite3
+output
+data/raw

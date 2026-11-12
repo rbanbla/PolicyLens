@@ -1,6 +1,5 @@
 import datetime
 import html
-import json
 import re
 import xml.etree.ElementTree as ET
 import zlib
@@ -8,24 +7,6 @@ from urllib.parse import urlencode
 from urllib.request import urlopen
 from django.utils.translation import gettext as _
 from server.integrations.transport import setting
-
-
-
-
-
-##온통 청년 사이트에서 정책 불러오는 코드 ->>> 2번 대안
-def get_topk_policies(k = 3):
-    url = "https://www.youthcenter.go.kr/go/ythip/getPlcy"
-    params = {
-    "serviceKey": setting('YOUTH_POLICY_KEY'),
-    "numOfRows": 10,
-    "pageNo": 1,
-    "dataType": "JSON"
-    }
-
-    with urlopen(f'{url}?{urlencode(params)}', timeout=10) as response:
-        data = json.load(response)
-    return data['response']['body']['items'][:k]
 
 
 #####정책브리핑 에서 정책 불러오는 코드

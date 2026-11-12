@@ -6,12 +6,28 @@
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 cp .env.example .env
-# .env에 API 키, 제공자, 모델 이름 입력
+# .env에 API 키, 제공자, 모델 이름과 로컬 개발용 DJANGO_DEBUG=1 입력
 .venv/bin/python manage.py migrate
 .venv/bin/python manage.py runserver 127.0.0.1:8001
 ```
 
 영어 화면 문구는 `locale/en/LC_MESSAGES/django.po`에 있다. 문구를 고친 뒤 `.venv/bin/python manage.py makemessages -l en --ignore='.venv/*'`로 목록을 갱신하고 `msgfmt -o locale/en/LC_MESSAGES/django.mo locale/en/LC_MESSAGES/django.po`로 컴파일한다.
+
+## 배포 (VibeHub)
+
+VibeHub GitLab 저장소의 main에 push하면 CI가 루트의 `Dockerfile`로 이미지를 만들고 `https://<app-id>.ai.hy.miwork.ai`에 배포한다. 컨테이너는 시작할 때마다 `migrate`와 `load_sources`를 실행한 뒤 waitress로 3000 포트에서 요청을 받는다. DEBUG는 기본으로 꺼져 있다.
+
+1. VibeHub에서 웹 앱과 PostgreSQL DB를 만들고, 앱의 연결된 내부 리소스에서 DB를 연결한다. 환경변수 prefix는 `DB`로 둔다. 앱은 주입된 `DB_DATABASE_URL`을 읽는다. DB를 연결하지 않으면 컨테이너 안의 SQLite를 써서 재배포할 때 기록이 사라진다.
+2. 런타임 설정에서 컨테이너 포트를 `3000`, 준비 상태 확인을 HTTP 경로 `/`로 둔다.
+3. AI Agent 모델 키를 신청한다. 승인되면 `MINIAPP_LLM_BASE_URL`과 `MINIAPP_LLM_API_KEY`가 자동으로 주입되며, `OPENAI_*`를 따로 넣으면 그 값이 우선한다.
+4. 환경변수를 넣는다. 바꾼 값은 배포 이력에서 재배포해야 반영된다.
+   - Secret: `DJANGO_SECRET_KEY`(`python -c "import secrets; print(secrets.token_urlsafe(50))"`로 만든 값), `NEWEST_POLICY_KEY`(없으면 최신 정책 목록만 비어 보인다)
+   - 일반: `DJANGO_ALLOWED_HOSTS=<app-id>.ai.hy.miwork.ai`, `POLICYLENS_API_MODE=chat_completions`, `POLICYLENS_SUMMARY_MODEL=<VibeHub에 등록된 모델명>`
+5. 앱 설정의 "자동 배포가 되지 않아요"에 있는 `.gitlab-ci.yml`을 저장소 루트에 두고 push한다. 이 파일에는 앱 전용 Webhook 주소가 들어 있어 저장소마다 다르다.
+
+서버 자료는 검수를 통과한 파일만 저장소에 들어 있다(`data/reviewed/documents.jsonl`, `data/reviewed/opinions.jsonl`, 통과한 문서의 `data/processed/<doc_id>/pages.json`). `data/`는 .gitignore 대상이므로 새로 통과한 문서는 `git add -f`로 추가하고, 검수에서 빠진 문서는 `git rm --cached`로 뺀다.
+
+한 단계의 모델 호출이 1분을 넘을 수 있다. VibeHub 프록시가 먼저 응답을 끊으면 화면에 오류가 보이지만 서버는 그 단계를 끝까지 진행해 저장하므로 재시작 버튼으로 이어간다.
 
 ## 사용 흐름
 
@@ -25,7 +41,7 @@ cp .env.example .env
 
 5페이지의 **두 결과 비교하기**에서 **비교 결과 만들기**를 누르면 같은 문서와 입장으로 단일 프롬프트 답변을 만든다(호출 1회 추가). 두 결과를 A·B로 나란히 보고 평가를 저장하면 어느 쪽이 어떤 방식인지 공개된다. 평가 결과는 `.venv/bin/python manage.py dumpdata server.reviewrun --indent 2`로 내보낸다. 이 출력에는 문서 원문이 포함된다.
 
-현재 입력은 PDF·TXT·붙여넣기를 지원한다. 실행 중 외부 호출은 동기식이며 개발용 SQLite 트랜잭션 안에서 진행한다.
+현재 입력은 PDF·TXT·붙여넣기를 지원한다. 실행 중 외부 호출은 동기식이며 DB 트랜잭션 안에서 진행한다(로컬은 SQLite, 배포는 PostgreSQL).
 
 ## 서버 자료
 

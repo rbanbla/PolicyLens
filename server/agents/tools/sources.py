@@ -5,7 +5,6 @@ from datetime import date
 from django.utils.translation import gettext as _
 from ...models import Source
 from .documents import check_quote, clean
-from .policy_facts import lookup_facts, digest, source_digest
 
 MAX_RESULTS = 5
 MAX_PAGES_PER_SOURCE = 2
@@ -25,8 +24,8 @@ TOOLS = [
 ]
 
 
-def new_research(as_of=None, *, structured_facts=False):
-    return {'opened': {}, 'log': [], 'as_of': as_of, 'structured_facts': structured_facts, 'facts': []}
+def new_research(as_of=None):
+    return {'opened': {}, 'log': [], 'as_of': as_of}
 
 
 def available(upload, as_of):
@@ -79,8 +78,7 @@ def search_sources(upload, research, query, kind):
              for token in query.split() if len(token) > 1]
     today = date.fromisoformat(str(research['as_of'] or date.today()))
     hits = []
-    sources = available(upload, research['as_of'])
-    for source in sources:
+    for source in available(upload, research['as_of']):
         if kind != 'all' and source.kind != kind:
             continue
         heading = 2 * weigh(terms, f'{source.title} {source.issuer}')[0]
@@ -90,52 +88,14 @@ def search_sources(upload, research, query, kind):
             if start is not None:
                 hits.append((weight + heading + recent, source, page, text, start))
     hits.sort(key=lambda hit: -hit[0])
-    results, used, returned_facts = [], {}, []
-    by_id = {source.doc_id: source for source in sources}
-    if research.get('structured_facts') and kind != 'opinion':
-        for fact in lookup_facts(query, knowledge_as_of=research['as_of'], effective_on=today):
-            evidence = fact['evidence']
-            if any(e['source_id'] not in by_id or source_digest(by_id[e['source_id']]) != e['source_hash'] for e in evidence):
-                continue
-            pages = {(r['source_id'], r['page']) for r in results}
-            new_pages = {(e['source_id'], e['page']) for e in evidence} - pages
-            if len(pages | new_pages) > MAX_RESULTS or any(
-                    used.get(source_id, 0) + sum(s == source_id for s, _ in new_pages) > MAX_PAGES_PER_SOURCE
-                    for source_id, _ in new_pages):
-                continue
-            for ev in evidence:
-                source, page = by_id[ev['source_id']], ev['page']
-                record(research, source, page, ev['quote'])
-                existing = next((r for r in results if r['source_id'] == source.doc_id and r['page'] == page), None)
-                if existing is None:
-                    results.append(entry(source, page, excerpt=ev['quote']))
-                    used[source.doc_id] = used.get(source.doc_id, 0) + 1
-                elif ev['quote'] not in existing['excerpt']:
-                    existing['excerpt'] += '\n…\n' + ev['quote']
-                opened = research['opened'][(source.doc_id, page)]
-                opened.setdefault('facts', []).append(fact)
-            returned_facts.append(fact)
-            if len(returned_facts) == MAX_RESULTS:
-                break
-    pages = {(r['source_id'], r['page']) for r in results}
+    results, used = [], {}
     for _, source, page, text, start in hits:
-        if (source.doc_id, page) in pages:
-            continue
         if len(results) < MAX_RESULTS and used.get(source.doc_id, 0) < MAX_PAGES_PER_SOURCE:
             used[source.doc_id] = used.get(source.doc_id, 0) + 1
             excerpt = text[max(0, start - BEFORE):start + AFTER]
             record(research, source, page, excerpt)
             results.append(entry(source, page, excerpt=excerpt))
-            pages.add((source.doc_id, page))
-    result = {'results': results} if results else {'results': [], 'note': '찾지 못했습니다.'}
-    if research.get('structured_facts'):
-        result['structured_facts'] = returned_facts
-        for fact in returned_facts:
-            if not any(f['revision'] == fact['revision'] for f in research['facts']):
-                research['facts'].append(fact)
-        # No shared cache: revision identifies exactly the reviewed facts returned in this tool call.
-        result['evidence_revision'] = digest(returned_facts)
-    return result
+    return {'results': results} if results else {'results': [], 'note': '찾지 못했습니다.'}
 
 
 def read_source(upload, research, source_id, page):
@@ -180,10 +140,3 @@ def check_sources(result, opened):
                 raise ValueError(_('서버 자료 %(id)s %(page)s쪽 인용 오류. %(reason)s') % {'id': source['source_id'], 'page': source['page'], 'reason': exc}) from exc
             # A snapshot, so the run still shows its evidence after the corpus changes.
             source.update({key: found[key] for key in ('kind', 'title', 'issuer', 'version', 'source_url')})
-
-            related = [fact for fact in found.get('facts', []) if any(
-                ev['source_id'] == source['source_id'] and ev['page'] == source['page'] and
-                (clean(ev['quote']) in clean(source['quote']) or clean(source['quote']) in clean(ev['quote']))
-                for ev in fact['evidence'])]
-            if related:
-                source['policy_facts'] = list({f['revision']: f for f in related}.values())
