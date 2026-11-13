@@ -5,9 +5,9 @@
 </div>
 <h3>{{ item.issue }}</h3>
 <p>{{ item.reason }}</p>
-{% if item.positions %}<ul class="issue-positions">{% for position in item.positions %}<li class="role-{{ position.role }}">
+{% if item.positions %}<ul class="issue-positions">{% for position in item.positions %}<li class="role-{{ position.role }}{% if position.is_low %} is-low{% endif %}">
 <span class="avatar">{{ position.name|first }}</span>
-<p><strong>{{ position.name }}</strong>{% if position.is_self %}<span class="self-tag">{% trans '내 입장' %}</span>{% endif %} {{ position.stance }}</p>
+<p><strong>{{ position.name }}</strong>{% if position.is_self %}<span class="self-tag">{% trans '내 입장' %}</span>{% endif %}{% if position.is_low %}<span class="low-tag">{% trans '관련 낮음' %}</span>{% endif %} {{ position.stance }}</p>
 </li>{% endfor %}</ul>{% endif %}
 <div class="issue-direction">
 <span>{% trans '입장 차이' %}</span>

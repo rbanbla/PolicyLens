@@ -956,10 +956,6 @@ msgid "다음 발언자는 직전 발언자가 아닌 역할 번호(0부터 %(n)
 msgstr "The next speaker must be a role number from 0 to %(n)s and not the previous speaker."
 
 #, python-format
-msgid "쟁점은 모두 %(n)s개까지만 둘 수 있습니다."
-msgstr "There can be at most %(n)s issues in total."
-
-#, python-format
 msgid "쟁점 %(number)s"
 msgstr "Issue %(number)s"
 
@@ -981,18 +977,10 @@ msgstr "Issues found in the document"
 msgid "쟁점과 역할별 입장을 정리하고 있어요."
 msgstr "Sorting the issues and each role's position."
 
-msgid "사회자가 정리한 새 쟁점"
-msgstr "New issues from the moderator"
-
-msgid "토론에서 새로 부딪힌 조항"
-msgstr "Clauses that clashed during the debate"
-
 #, python-format
 msgid "쟁점마다 모든 역할(0부터 %(n)s)의 입장을 한 줄씩, 역할마다 하나만 쓰세요."
 msgstr "For each issue, write one line for every role (0 to %(n)s), exactly one per role."
 
-msgid "쟁점마다 정해진 발언을 마쳐 토론을 끝내요."
-msgstr "Every issue has had its statements, so the debate ends here."
 
 msgid "사람 이름(○○ 씨)이나 특정 인물을 예로 들지 말고 역할 이름으로 다시 쓰세요."
 msgstr "Do not name a person (\"○○ 씨\") or use a specific individual as an example; rewrite it in the role's name."
@@ -1022,3 +1010,62 @@ msgstr "Disputed wording: \"%(text)s\""
 #, python-format
 msgid "phrase는 citation.quote 안에 있는 표현을 그대로 옮기세요: \"%(phrase)s\""
 msgstr "Copy phrase exactly from inside citation.quote: \"%(phrase)s\""
+
+msgid "쟁점 마무리"
+msgstr "Closing the issue"
+
+msgid "모든 쟁점의 토론을 마쳤어요."
+msgstr "Every issue has been debated."
+
+msgid "관련 낮음"
+msgstr "Low relevance"
+
+msgid "지키려는 것"
+msgstr "What it protects"
+
+msgid "쟁점 메모"
+msgstr "Issue note"
+
+msgid "아래 쟁점 메모에 남겼어요"
+msgstr "Noted in the issue notes below"
+
+msgid "사회자의 쟁점 메모"
+msgstr "The moderator's issue notes"
+
+msgid "토론에서 새로 부딪힌 조항이에요. 토론하지 않고 기록만 했어요."
+msgstr "Clauses that clashed during the debate. They are noted only, not debated."
+
+msgid "메모"
+msgstr "Note"
+
+#, python-format
+msgid "쟁점 %(number)s 토론 중"
+msgstr "During issue %(number)s"
+
+#, python-format
+msgid "이 쟁점과 관련이 낮은 역할(%(roles)s)은 다른 역할의 발언이 비용이나 위험을 그 역할에게 옮길 때만, 그 발언 ID를 shifted_by에 넣고 부르세요."
+msgstr "Call a role with low relevance to this issue (%(roles)s) only when another role's statement shifts a cost or risk onto it, and put that statement's ID in shifted_by."
+
+#, python-format
+msgid "low_relevance에는 관련이 낮은 역할 번호(0부터 %(n)s)를 한 번씩만 쓰고, 직접 관련된 역할은 둘 이상 남기세요."
+msgstr "List each low-relevance role number (0 to %(n)s) once in low_relevance, and leave at least two directly involved roles."
+
+#, python-format
+msgid "아직 발언하지 않은 관련 역할(%(roles)s)이 있어 쟁점을 닫을 수 없습니다."
+msgstr "The issue cannot close while involved roles (%(roles)s) have not spoken yet."
+
+#, python-format
+msgid "발언이 %(n)s개 이상 나온 쟁점만 넘길 수 있어요."
+msgstr "You can move on once the issue has at least %(n)s statements."
+
+msgid "사용자가 충분하다고 보고 다음 쟁점으로 넘겼어요."
+msgstr "You found this enough and moved on to the next issue."
+
+msgid "이번 발언이 끝나면 넘어가요"
+msgstr "Moving on after this statement"
+
+msgid "토론 마치기"
+msgstr "End the debate"
+
+msgid "다음 쟁점으로"
+msgstr "Next issue"

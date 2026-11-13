@@ -1,10 +1,10 @@
-# The server fixes the phases (issues, debate, close, final) and the order of issues; inside an issue the moderator picks who speaks next.
+# The server fixes the phases (issues, debate, close, final) and the order of issues; inside an issue the moderator picks who speaks next and when it ends.
 MAX_ISSUES = 3  # Issues picked before the debate.
-MAX_NEW_ISSUES = 2  # Issues the moderator may add from the debate.
-PER_ISSUE = 3  # Statements on each issue; the user's role always makes the first.
+MAX_STATEMENTS = 10  # Not a target: only stops an issue the moderator never closes.
+MIN_BEFORE_SKIP = 3  # Statements an issue needs before the user may move on to the next one.
 
-NEXT = {None: 'issues', 'independent': None, 'issues': 'debate', 'debate': 'debate', 'close': 'final', 'final': None}  # independent: older runs cannot continue.
-PHASES = {'independent': 'discussion', 'issues': 'discussion', 'debate': 'review', 'close': 'review', 'final': 'proposal'}  # independent: runs made before the moderator.
+NEXT = {None: 'issues', 'independent': None, 'issues': 'debate', 'debate': 'debate', 'issue_close': 'debate', 'close': 'final', 'final': None}  # independent: older runs cannot continue.
+PHASES = {'independent': 'discussion', 'issues': 'discussion', 'debate': 'review', 'issue_close': 'review', 'close': 'review', 'final': 'proposal'}  # independent: runs made before the moderator.
 ORDER = ('discussion', 'review', 'proposal', None)
 
 

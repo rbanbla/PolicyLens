@@ -1,6 +1,6 @@
 from collections import Counter
 from copy import deepcopy
-from ..planning import PER_ISSUE
+from ..planning import MAX_STATEMENTS
 
 
 def numbered_steps(steps):
@@ -15,7 +15,7 @@ def numbered_steps(steps):
 
 def history(run, stage):
     # The issues step reads only the document and the role cards; the debate and the final step see everything said so far.
-    allowed = {'issues': [], 'moderator': ['issues', 'debate'], 'debate': ['issues', 'debate'], 'final': ['issues', 'debate']}[stage]
+    allowed = {'issues': [], 'moderator': ['issues', 'debate', 'issue_close'], 'debate': ['issues', 'debate', 'issue_close'], 'final': ['issues', 'debate', 'issue_close']}[stage]
     roles = run.analysis['roles']
     return [{'stage': step['stage'], 'role': step['role'], 'result': step['result'],
              'speaker': 'PolicyLens' if step['role'] is None else roles[step['role']]['name'],
@@ -34,9 +34,21 @@ def issue_of(step):
 
 
 def pending_issue(context):
-    # Issues are debated in order, each to PER_ISSUE statements; None once every issue is done.
+    # Issues are debated in order until the moderator closes them (or the safety limit); None once every issue is done.
     said = Counter(issue_of(step) for step in context if step['stage'] == 'debate' and 'moderator' in step)
-    return next(((issue, said[issue['id']]) for issue in all_issues(context) if said[issue['id']] < PER_ISSUE), (None, 0))
+    closed = {step['moderator']['closed'] for step in context if step['stage'] == 'issue_close'}
+    return next(((issue, said[issue['id']]) for issue in all_issues(context)
+                 if issue['id'] not in closed and said[issue['id']] < MAX_STATEMENTS), (None, 0))
+
+
+def spoken_roles(context, issue_id):
+    return sorted({step['role'] for step in context if step['stage'] == 'debate' and 'moderator' in step and issue_of(step) == issue_id})
+
+
+def opener(issue, selected, count):
+    # The user's role opens an issue unless the clause barely touches it; then the first role it does touch opens. Older issues have no marks.
+    low = issue.get('low_relevance', [])
+    return selected if selected not in low else next(role for role in range(count) if role not in low)
 
 
 def reference_ids(context, stage, role):

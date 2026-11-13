@@ -23,6 +23,18 @@ class ReviewRun(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
 
+class IssueNote(models.Model):
+    # A clause the moderator saw clash during the debate. Noted only: it is never debated.
+    run = models.ForeignKey(ReviewRun, on_delete=models.CASCADE, related_name='notes')
+    step = models.IntegerField()  # Number (from 1, as shown) of the step whose moderator call wrote it.
+    during = models.CharField(max_length=20)  # The issue being debated then.
+    issue = models.TextField()
+    reason = models.TextField()
+    page = models.IntegerField()
+    quote = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
 class Source(models.Model):
     """A reviewed public document kept on the server for agents to look up."""
     doc_id = models.CharField(max_length=64, unique=True)

@@ -1,2 +1,3 @@
 {% load i18n %}{% if current.ended %}<span class="eyebrow">{% trans '토론을 마쳤어요.' %}</span>{% elif current %}<span class="eyebrow">{% trans '지금 토론 중인 쟁점' %}</span>
-<strong>{% blocktranslate with number=current.number|stringformat:'02d' %}쟁점 {{ number }}{% endblocktranslate %} · {{ current.issue }}</strong>{% endif %}
+<strong>{% blocktranslate with number=current.number|stringformat:'02d' %}쟁점 {{ number }}{% endblocktranslate %} · {{ current.issue }}</strong>
+{% if current.can_skip %}<button type="button" class="skip-issue" data-skip data-queued="{% trans '이번 발언이 끝나면 넘어가요' %}">{% if current.is_last %}{% trans '토론 마치기' %}{% else %}{% trans '다음 쟁점으로' %}{% endif %} →</button>{% endif %}{% endif %}

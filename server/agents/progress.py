@@ -2,10 +2,10 @@ import re
 
 from django.utils.translation import gettext as _, gettext_noop
 
-from .memory.context import all_issues, issue_of, numbered_steps, pending_issue
-from .planning import next_phase, next_stage, phase_of
+from .memory.context import all_issues, issue_of, numbered_steps, opener, pending_issue
+from .planning import MIN_BEFORE_SKIP, next_phase, next_stage, phase_of
 
-LABELS = {'independent': gettext_noop('입장 살펴보기'), 'issues': gettext_noop('쟁점 정리'), 'debate': gettext_noop('쟁점 토론'), 'close': gettext_noop('토론 마무리'), 'final': gettext_noop('주의 조항 정리')}
+LABELS = {'independent': gettext_noop('입장 살펴보기'), 'issues': gettext_noop('쟁점 정리'), 'debate': gettext_noop('쟁점 토론'), 'issue_close': gettext_noop('쟁점 마무리'), 'close': gettext_noop('토론 마무리'), 'final': gettext_noop('주의 조항 정리')}
 
 
 def step_label(run, stage, role):
@@ -29,7 +29,8 @@ def issue_cards(run, steps):
     roles = run.analysis.get('roles', [])
     for item in result.get('items', []):
         for position in item.get('positions', []):
-            position.update(name=roles[position['role']]['name'], is_self=position['role'] == run.selected_role)
+            position.update(name=roles[position['role']]['name'], is_self=position['role'] == run.selected_role,
+                            is_low=position['role'] in item.get('low_relevance', []))
     return result
 
 
@@ -39,8 +40,15 @@ def numbered_issues(steps):
 
 
 def new_issues(steps):
+    # Runs made before the note tool: the moderator's added issues, which were debated.
     issues = numbered_issues(steps)
     return [issues[issue['id']] for step in steps for issue in step.get('moderator', {}).get('new_issues', [])]
+
+
+def issue_notes(run):
+    issues = numbered_issues(numbered_steps(run.steps))
+    return [{'id': f'note-{note.pk}', 'step': note.step, 'issue': note.issue, 'reason': note.reason, 'page': note.page, 'quote': note.quote,
+             'during': issues.get(note.during)} for note in run.notes.order_by('pk')]
 
 
 def current_issue(run):
@@ -50,9 +58,11 @@ def current_issue(run):
         return None
     if steps[-1]['stage'] in ('close', 'final'):
         return {'ended': True}
-    pending, _ = pending_issue(steps)
+    pending, said = pending_issue(steps)
     if pending:
-        return issues[pending['id']]
+        # The user may move on once the issue has had enough statements; the last issue then ends the debate.
+        return {**issues[pending['id']], 'can_skip': said >= MIN_BEFORE_SKIP and next_stage(run.steps) == 'debate',
+                'is_last': pending['id'] == list(issues)[-1]}
     debate = [step for step in steps if step['stage'] == 'debate' and 'moderator' in step]
     return issues[issue_of(debate[-1])] if debate else None
 
@@ -64,8 +74,10 @@ def is_complete(run):
 def display_steps(run):
     steps = numbered_steps(run.steps)
     issues = numbered_issues(steps)
+    notes = issue_notes(run)
     opened, previous = set(), None
     for index, step in enumerate(steps):
+        step['notes'] = [note for note in notes if note['step'] == index + 1]
         role, stage = step['role'], step['stage']
         issue = issue_of(step) if stage == 'debate' and 'moderator' in step else None
         step.update(label=step_label(run, stage, role), number=index + 1,
@@ -89,7 +101,7 @@ def progress(run):
         # Only an issue's opening speaker is known ahead; after that the moderator decides inside the step.
         issue, said = pending_issue(numbered_steps(run.steps))
         if stage == 'debate' and issue and not said:
-            next_role = run.selected_role
+            next_role = opener(issue, run.selected_role, len(run.analysis['roles']))
         next_label = step_label(run, stage, next_role)
         next_name = speaker_name(run, next_role)
     return {'cursor': len(run.steps), 'complete': is_complete(run), 'next_phase': next_phase(run.steps),

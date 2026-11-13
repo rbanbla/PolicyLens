@@ -27,6 +27,7 @@
   const phase = form.dataset.phase;
   const text = form.dataset;
   let running = false;
+  let skipQueued = false;  // The user asked to move on; sent as soon as no step is in flight.
   const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
   const messageGap = 200;
 
@@ -69,6 +70,11 @@
     if (issues && state.issues_html) issues.innerHTML = state.issues_html;
     const current = document.getElementById('current-issue');
     if (current) current.innerHTML = state.current_issue_html;
+    const skip = document.querySelector('[data-skip]');
+    if (skip && skipQueued) {
+      skip.disabled = true;
+      skip.textContent = skip.dataset.queued;
+    }
     const added = document.getElementById('new-issues');
     if (added) {
       added.innerHTML = state.new_issues_html;
@@ -100,6 +106,11 @@
     try {
       let state = await request(form.dataset.statusUrl);
       while (state.next_phase === phase) {
+        if (skipQueued) {
+          skipQueued = false;
+          state = await request(form.dataset.skipUrl, {method: 'POST', body: new FormData(form)});
+          continue;
+        }
         showTyping(state);
         state = await request(form.action, {method: 'POST', body: new FormData(form)}, true);
       }
@@ -115,12 +126,21 @@
     } finally {
       typing.hidden = true;
       running = false;
+      skipQueued = false;
       button.disabled = false;
       button.hidden = false;
       button.textContent = text.retry;
     }
   }
   form.addEventListener('submit', start);
+  document.addEventListener('click', event => {
+    const skip = event.target.closest('[data-skip]');
+    if (!skip || skip.disabled) return;
+    skipQueued = true;
+    skip.disabled = true;
+    if (running) skip.textContent = skip.dataset.queued;
+    else start();
+  });
   const url = new URL(window.location.href);
   const autoStart = url.searchParams.get('start') === '1';
   url.searchParams.delete('start');

@@ -8,9 +8,9 @@ from django.utils.translation import gettext as _, gettext_noop
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST, require_GET
 from .models import ReviewRun
-from .agents.runner import analyze, advance, baseline, create_run
+from .agents.runner import analyze, advance, baseline, create_run, skip_issue
 from .agents.planning import ORDER, next_phase, role_count
-from .agents.progress import progress, baseline_text, current_issue, display_steps, feedback_letters, is_complete, issue_cards, new_issues, pipeline_text, research_log
+from .agents.progress import progress, baseline_text, current_issue, display_steps, feedback_letters, is_complete, issue_cards, issue_notes, new_issues, pipeline_text, research_log
 from .agents.tools.documents import read_pages
 from .integrations.policy_suggest import newest_youth_policies
 
@@ -78,7 +78,7 @@ def review_page(request, run, error='', status=200):
     context = {
         'phase': page,
         'phase_done': page == 'summary' or ORDER.index(page) < reached, 'phase_ready': page == 'summary' or ORDER.index(page) <= reached,
-        'display_steps': steps, 'issues': issue_cards(run, steps), 'current': current_issue(run), 'new_issues': new_issues(steps), 'letters': feedback_letters(run), 'research': research_log(run),
+        'display_steps': steps, 'issues': issue_cards(run, steps), 'current': current_issue(run), 'new_issues': new_issues(steps), 'notes': issue_notes(run), 'letters': feedback_letters(run), 'research': research_log(run),
         'form_error': error, 'run': run, 'complete': is_complete(run),
         'selected': run.analysis['roles'][run.selected_role]['name'] if run.selected_role is not None else '',
     }
@@ -104,7 +104,7 @@ def step_response(request, run, status=200, message=''):
         data['steps_html'] = render_to_string('review_steps.html', {'display_steps': steps, 'all_steps': True})
         data['issues_html'] = render_to_string('issue_cards.html', {'issues': issue_cards(run, steps)})
         data['current_issue_html'] = render_to_string('current_issue.html', {'current': current_issue(run)})
-        data['new_issues_html'] = render_to_string('new_issues.html', {'new_issues': new_issues(steps)})
+        data['new_issues_html'] = render_to_string('new_issues.html', {'new_issues': new_issues(steps), 'notes': issue_notes(run)})
         response = JsonResponse(data, status=status)
         response['Cache-Control'] = 'no-store'
         return response
@@ -137,6 +137,23 @@ def step(request, pk):
     except OperationalError:
         return step_response(request, run, 503, _('서버가 다른 작업을 저장 중입니다. 잠시 후 다시 시작하세요.'))
     return step_response(request, run, 502 if run.error else 200)
+
+
+@require_POST
+def skip(request, pk):
+    run = owned(request, pk)
+    if request.POST.get('cursor') != str(len(run.steps)):
+        return step_response(request, run, 409, _(CONFLICT))
+    try:
+        with transaction.atomic():
+            # The same snapshot claim as a step, so a skip never lands between a step's read and its save.
+            if not ReviewRun.objects.filter(pk=run.pk, steps=run.steps).update(error=''):
+                run.refresh_from_db()
+                return step_response(request, run, 409, _(CONFLICT))
+            skip_issue(run)
+    except ValueError as exc:
+        return step_response(request, run, 400, str(exc))
+    return step_response(request, run)
 
 
 @require_POST

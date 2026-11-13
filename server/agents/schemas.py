@@ -23,8 +23,10 @@ ANALYSIS = obj({
                         'persona_hint': obj({'age_min': {'type': 'integer'}, 'age_max': {'type': 'integer'}, 'keywords': array(TEXT)})})),
 })
 ITEM_FIELDS = {
-    'issues': {'issue': TEXT, 'signal': SIGNAL, 'priority': PRIORITY, 'reason': TEXT, 'contested': TEXT, 'question': TEXT},
-    'debate': {'issue': TEXT, 'claim_summary': TEXT, 'response': enum(gettext_noop('수용'), gettext_noop('제한'), gettext_noop('반박')), 'reason': TEXT, 'request': TEXT, 'condition': TEXT},
+    # low_relevance: role indices this clause barely touches; they get no turn on the issue.
+    'issues': {'issue': TEXT, 'signal': SIGNAL, 'priority': PRIORITY, 'reason': TEXT, 'contested': TEXT, 'question': TEXT, 'low_relevance': array({'type': 'integer'})},
+    # stake: the speaker's own goal or red_line this statement defends.
+    'debate': {'issue': TEXT, 'claim_summary': TEXT, 'response': enum(gettext_noop('수용'), gettext_noop('제한'), gettext_noop('반박')), 'stake': TEXT, 'reason': TEXT, 'request': TEXT, 'condition': TEXT},
     'final': {'issue': TEXT, 'signal': SIGNAL, 'priority': PRIORITY, 'reason': TEXT, 'impact': TEXT,
               'phrase': TEXT, 'my_reading': TEXT, 'other_role': TEXT, 'other_reading': TEXT, 'check': TEXT, 'question': TEXT, 'uncertainty': TEXT},
 }
@@ -52,7 +54,8 @@ def report(stage, targets, others=()):
     return obj(top)
 
 
-def moderator():
-    # Within the issue the server picked, the moderator names the next speaker and may add issues the debate raised.
-    issue = obj({**ITEM_FIELDS['issues'], 'citation': CITATION})
-    return obj({'summary': TEXT, 'speaker': {'type': 'integer'}, 'question': TEXT, 'new_issues': array(issue)})
+def moderator(statements=()):
+    # Within the issue the server picked, the moderator closes it or names the next speaker; new issues go to the note tool.
+    # shifted_by: the statement on this issue that moves a cost onto a low-relevance role, which is the only way to call that role.
+    return obj({'summary': TEXT, 'close': {'type': 'boolean'}, 'speaker': {'type': 'integer'}, 'question': TEXT,
+                'shifted_by': enum('none', *statements)})

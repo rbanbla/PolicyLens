@@ -1076,6 +1076,18 @@ blockquote small {
 .issue-positions .self-tag {
   margin-right:6px
 }
+.issue-positions .low-tag {
+  background:#eef1f5;
+  color:#7a8592;
+  font-size:9px;
+  padding:3px 7px;
+  border-radius:6px;
+  white-space:nowrap;
+  margin-right:6px
+}
+.issue-positions .is-low p {
+  color:#7a8592
+}
 .current-issue {
   display:flex;
   align-items:baseline;
@@ -1089,6 +1101,22 @@ blockquote small {
 }
 .current-issue:empty {
   display:none
+}
+.current-issue .skip-issue {
+  margin-left:auto;
+  align-self:center;
+  border:1px solid #c9d7ea;
+  background:#fff;
+  color:#4f6787;
+  font:inherit;
+  font-size:12px;
+  padding:5px 11px;
+  border-radius:8px;
+  cursor:pointer
+}
+.current-issue .skip-issue:disabled {
+  cursor:default;
+  opacity:.65
 }
 .issue-divider {
   display:flex;

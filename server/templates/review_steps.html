@@ -1,12 +1,14 @@
 {% load i18n %}{% for step in display_steps %}{% if step.phase != 'discussion' %}{% if all_steps or step.phase == phase %}
 {% if step.issue_changed %}<div class="issue-divider" id="s{{ step.number }}-divider" data-phase="{{ step.phase }}">{% blocktranslate with number=step.issue.number|stringformat:'02d' %}쟁점 {{ number }}{% endblocktranslate %} · {{ step.issue.issue }}</div>{% endif %}
-{% if step.stage == 'debate' %}{% if step.moderator.next.0.question or step.moderator.new_issues %}<div class="chat-message is-moderator" id="s{{ step.number }}-moderator" data-phase="{{ step.phase }}">
+{% if step.stage == 'debate' or step.stage == 'issue_close' %}{% if step.moderator.next.0.question or step.moderator.new_issues or step.notes %}<div class="chat-message is-moderator" id="s{{ step.number }}-moderator" data-phase="{{ step.phase }}">
 <span class="avatar">P</span>
 <div>
 <div class="speaker">PolicyLens<small>{% trans '사회자' %}</small>
 </div>
 <div class="bubble">{% for issue in step.moderator.new_issues %}<h3>{% trans '새 쟁점' %} · {{ issue.issue }}</h3>
 <p><a class="text-link" href="#{{ issue.id }}">{% trans '아래 새 쟁점에 정리했어요' %} ↓</a></p>{% endfor %}
+{% for note in step.notes %}<h3>{% trans '쟁점 메모' %} · {{ note.issue }}</h3>
+<p><a class="text-link" href="#{{ note.id }}">{% trans '아래 쟁점 메모에 남겼어요' %} ↓</a></p>{% endfor %}
 {% if step.moderator.next.0.question %}<p><strong>{{ step.speaker }}</strong> · {{ step.moderator.next.0.question }}</p>{% endif %}
 </div>
 </div>
@@ -77,6 +79,8 @@
 <strong>{% if step.opens %}{% trans '쟁점' %}{% else %}{% trans '상대 주장' %}{% endif %}</strong> {{ item.claim_summary }}</p>{% endif %}
 {% if item.response %}<p>
 <strong>{% if step.opens %}{% trans '입장' %}{% else %}{% trans '반응' %}{% endif %}</strong> {% trans item.response %}</p>{% endif %}
+{% if item.stake %}<p>
+<strong>{% trans '지키려는 것' %}</strong> {{ item.stake }}</p>{% endif %}
 {% if item.contested %}<p>
 <strong>{% trans '입장 차이' %}</strong> {{ item.contested }}</p>{% endif %}
 {% if item.request %}<p>

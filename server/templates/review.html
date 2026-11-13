@@ -107,7 +107,7 @@
 <div class="run-controls">
 <p id="review-progress" class="subtle" role="status">{% if phase_done %}{% trans '이 단계의 검토가 끝났어요.' %}{% elif not phase_ready %}{% trans '앞선 검토가 끝나면 이어서 살펴볼 수 있어요.' %}{% else %}{% trans '준비되면 이어서 살펴볼게요.' %}{% endif %}</p>
 <p id="review-error" class="error" role="alert">{{ run.error }}</p>
-{% if not phase_done and phase_ready %}<form id="review-runner" method="post" action="{% url 'step' run.pk %}" data-status-url="{% url 'status' run.pk %}" data-phase="{{ phase }}" data-typing="{% trans '{name}의 입장을 살펴보고 있어요.' %}" data-done="{% trans '이 단계의 검토가 끝났어요.' %}" data-unreachable="{% trans '연결 상태를 확인한 후 다시 이어서 살펴봐 주세요.' %}" data-paused="{% trans '잠시 멈췄어요. 다시 이어서 살펴볼 수 있어요.' %}" data-offline="{% trans '연결이 잠시 끊겼어요. 다시 시작하면 저장된 입장부터 이어집니다.' %}" data-saved="{% trans '잠시 멈췄어요. 나눈 입장은 저장되어 있어요.' %}" data-retry="{% trans '이어서 다시 살펴보기' %}">{% csrf_token %}<input type="hidden" name="cursor" value="{{ run.steps|length }}">
+{% if not phase_done and phase_ready %}<form id="review-runner" method="post" action="{% url 'step' run.pk %}" data-status-url="{% url 'status' run.pk %}" data-skip-url="{% url 'skip' run.pk %}" data-phase="{{ phase }}" data-typing="{% trans '{name}의 입장을 살펴보고 있어요.' %}" data-done="{% trans '이 단계의 검토가 끝났어요.' %}" data-unreachable="{% trans '연결 상태를 확인한 후 다시 이어서 살펴봐 주세요.' %}" data-paused="{% trans '잠시 멈췄어요. 다시 이어서 살펴볼 수 있어요.' %}" data-offline="{% trans '연결이 잠시 끊겼어요. 다시 시작하면 저장된 입장부터 이어집니다.' %}" data-saved="{% trans '잠시 멈췄어요. 나눈 입장은 저장되어 있어요.' %}" data-retry="{% trans '이어서 다시 살펴보기' %}">{% csrf_token %}<input type="hidden" name="cursor" value="{{ run.steps|length }}">
 <button class="secondary">{% if run.error %}{% trans '이어서 다시 살펴보기' %}{% else %}{% trans '검토 이어가기' %}{% endif %}</button>
 </form>{% endif %}
 {% if not phase_ready %}<a class="secondary" href="?page={% if phase == 'review' %}discussion{% else %}review{% endif %}">{% trans '앞선 검토로 돌아가기' %}</a>{% endif %}
@@ -115,13 +115,13 @@
 <p>{% trans '버튼을 누를 때마다 한 입장씩 확인할 수 있어요.' %}</p>
 </noscript>
 </div>
-{% if phase == 'review' %}<section class="issues-section" id="new-issues-section" {% if not new_issues %}hidden{% endif %}>
+{% if phase == 'review' %}<section class="issues-section" id="new-issues-section" {% if not new_issues and not notes %}hidden{% endif %}>
 <div class="section-heading">
 <div>
 <span class="eyebrow">FROM THE MODERATOR</span>
-<h2>{% trans '사회자가 정리한 새 쟁점' %}</h2>
+<h2>{% trans '사회자의 쟁점 메모' %}</h2>
 </div>
-<span class="subtle">{% trans '토론에서 새로 부딪힌 조항' %}</span>
+<span class="subtle">{% trans '토론에서 새로 부딪힌 조항이에요. 토론하지 않고 기록만 했어요.' %}</span>
 </div>
 <div id="new-issues" class="issue-grid">{% include 'new_issues.html' %}</div>
 </section>{% endif %}

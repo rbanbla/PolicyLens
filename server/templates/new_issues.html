@@ -17,3 +17,13 @@
 <p>{{ item.question }}</p>
 </details>
 </article>{% endfor %}
+{% for note in notes %}<article class="issue-card" id="{{ note.id }}">
+<div class="section-heading">
+<span class="issue-number">{% trans '메모' %}</span>
+{% if note.during %}<span class="tag">{% blocktranslate with number=note.during.number|stringformat:'02d' %}쟁점 {{ number }} 토론 중{% endblocktranslate %}</span>{% endif %}
+</div>
+<h3>{{ note.issue }}</h3>
+<p>{{ note.reason }}</p>
+<blockquote>{{ note.quote }}<small>{% blocktranslate with page=note.page %}{{ page }}쪽{% endblocktranslate %}</small>
+</blockquote>
+</article>{% endfor %}

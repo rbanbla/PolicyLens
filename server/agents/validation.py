@@ -1,6 +1,6 @@
 import re
 from django.utils.translation import gettext as _
-from .planning import MAX_ISSUES, MAX_NEW_ISSUES
+from .planning import MAX_ISSUES
 from .tools.documents import check_quote, clean
 
 HANZI = re.compile(r'[\u3400-\u9fff\uf900-\ufaff]')
@@ -9,7 +9,7 @@ PERSON = re.compile(r'[가-힣]{2,4} 씨')  # "서준수 씨": a person's name, 
 
 def validate_shape(value, schema):
     kind = schema['type']
-    types = {'object': dict, 'array': list, 'string': str, 'integer': int}
+    types = {'object': dict, 'array': list, 'string': str, 'integer': int, 'boolean': bool}
     if type(value) is not types[kind]:
         raise ValueError(_('응답 필드의 자료형이 잘못되었습니다.'))
     if 'enum' in schema and value not in schema['enum']:
@@ -74,21 +74,35 @@ def validate_report(pages, result, stage, targets):
             raise ValueError(_('검토한 이전 발언 ID를 연결하세요.'))
 
 
-def validate_moderator(pages, output, count, last, issue_total):
-    check_text(pages, {'summary': output['summary'], 'items': [{'question': output['question']}] + output['new_issues']})
+def validate_moderator(pages, output, count, last, low=(), spoken=(), statements=None):
+    check_text(pages, {'summary': output['summary'], 'items': [{'question': output['question']}]})
+    if output['close']:
+        # An issue ends only after every role it touches has had a say.
+        silent = sorted(set(range(count)) - set(low) - set(spoken))
+        if silent:
+            raise ValueError(_('아직 발언하지 않은 관련 역할(%(roles)s)이 있어 쟁점을 닫을 수 없습니다.') % {'roles': ', '.join(map(str, silent))})
+        return
     speaker = output['speaker']
     if not 0 <= speaker < count or speaker == last:
         raise ValueError(_('다음 발언자는 직전 발언자가 아닌 역할 번호(0부터 %(n)s)여야 합니다.') % {'n': count - 1})
-    if issue_total + len(output['new_issues']) > MAX_ISSUES + MAX_NEW_ISSUES:
-        raise ValueError(_('쟁점은 모두 %(n)s개까지만 둘 수 있습니다.') % {'n': MAX_ISSUES + MAX_NEW_ISSUES})
-    for item in output['new_issues']:
-        check_quote(pages, item['citation'])
+    # statements: this issue's statement IDs and who made them. A low-relevance role is called only over another role's statement.
+    if speaker in low and (statements or {}).get(output['shifted_by'], speaker) == speaker:
+        raise ValueError(_('이 쟁점과 관련이 낮은 역할(%(roles)s)은 다른 역할의 발언이 비용이나 위험을 그 역할에게 옮길 때만, 그 발언 ID를 shifted_by에 넣고 부르세요.') % {'roles': ', '.join(map(str, sorted(low)))})
+
+
+def validate_relevance(items, count):
+    # A debate needs two roles the clause actually touches; the others are marked instead of given an invented stake.
+    for item in items:
+        low = item['low_relevance']
+        if len(low) != len(set(low)) or not set(low) <= set(range(count)) or count - len(low) < 2:
+            raise ValueError(_('low_relevance에는 관련이 낮은 역할 번호(0부터 %(n)s)를 한 번씩만 쓰고, 직접 관련된 역할은 둘 이상 남기세요.') % {'n': count - 1})
 
 
 def validate_positions(result, count):
     for item in result['items']:
         if sorted(position['role'] for position in item['positions']) != list(range(count)):
             raise ValueError(_('쟁점마다 모든 역할(0부터 %(n)s)의 입장을 한 줄씩, 역할마다 하나만 쓰세요.') % {'n': count - 1})
+    validate_relevance(result['items'], count)
 
 
 def validate_phrases(result):

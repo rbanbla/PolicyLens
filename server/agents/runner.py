@@ -4,14 +4,15 @@ import time
 from django.conf import settings
 from django.utils.translation import gettext
 from .schemas import ANALYSIS, BASELINE_ITEMS, PRIORITY_ORDER, SOURCE_STAGES, moderator, report
-from .planning import PER_ISSUE, last_speaker, next_stage, role_count
-from .memory.context import all_issues, assigned_claim, history, numbered_steps, pending_issue, reference_ids
+from .planning import MIN_BEFORE_SKIP, last_speaker, next_stage, role_count
+from .memory.context import all_issues, assigned_claim, history, issue_of, numbered_steps, opener, pending_issue, reference_ids, spoken_roles
 from .tools.documents import align_citations, numbered_pages
 from .tools.personas import anonymized, match_personas
+from .tools.notes import TOOLS as NOTE_TOOLS, note_issue
 from .tools.sources import TOOLS, check_sources, new_research, run_tool
 from .validation import validate_moderator, validate_phrases, validate_positions, validate_shape, validate_roles, validate_report
 from ..integrations import transport
-from ..models import ReviewRun, Source
+from ..models import IssueNote, ReviewRun, Source
 
 MAX_TOOL_ROUNDS = 3
 
@@ -57,31 +58,32 @@ def call_model(run, stage, payload, key, purpose='model', role=None):
             entry.update(seconds=round(elapsed, 1), elapsed_ms=round(elapsed * 1000, 2))
             run.calls.append(entry)
 
-def agent_loop(run, stage, payload, key, research, search_first, role=None):
-    # The model picks what to look up and when to stop; the server runs the tools and caps the rounds.
+def agent_loop(run, stage, payload, key, tools, handle, search_first, role=None):
+    # The model picks what to call and when to stop; the server runs the tools and caps the rounds.
     conversation = [{'role': 'user', 'content': payload['input']}]
     for round_number in range(MAX_TOOL_ROUNDS):
         choice = {'tool_choice': 'required'} if search_first and round_number == 0 else {}
-        response = call_model(run, stage, {**payload, 'input': conversation, 'tools': TOOLS, **choice}, key, 'model' if round_number == 0 else 'tool_followup', role)
+        response = call_model(run, stage, {**payload, 'input': conversation, 'tools': tools, **choice}, key, 'model' if round_number == 0 else 'tool_followup', role)
         calls = [item for item in response.get('output', []) if item.get('type') == 'function_call']
         if not calls:
             return output_text(response)
-        conversation += calls + [{'type': 'function_call_output', 'call_id': call['call_id'], 'output': run_tool(run.pages, research, call)}
-                                 for call in calls]
-    return output_text(call_model(run, stage, {**payload, 'input': conversation, 'tools': TOOLS, 'tool_choice': 'none'}, key, 'tool_followup', role))
+        conversation += calls + [{'type': 'function_call_output', 'call_id': call['call_id'], 'output': handle(call)} for call in calls]
+    return output_text(call_model(run, stage, {**payload, 'input': conversation, 'tools': tools, 'tool_choice': 'none'}, key, 'tool_followup', role))
 
-def generate(run, stage, data, schema, check, research=None, search_first=False, role=None):
+def generate(run, stage, data, schema, check, research=None, search_first=False, role=None, notes=None):
     key = ready_key(run)
     body = json.dumps(data, ensure_ascii=False)
     instructions = [run.prompts['common'], run.prompts[stage]] + ([run.prompts['references']] if stage not in ('analysis', 'moderator') else []) + ([run.prompts['sources']] if research else []) + ([run.prompts['lang_en']] if run.language == 'en' else [])
     payload = {'model': run.model, 'store': False, 'instructions': '\n'.join(instructions), 'input': body, 'max_output_tokens': 6000, 'text': {'format': {'type': 'json_schema', 'name': 'review', 'strict': True, 'schema': schema}}}
-    search = research is not None
+    # Role agents search the server sources; the moderator only has the note tool.
+    tools, handle = ((TOOLS, lambda call: run_tool(run.pages, research, call)) if research is not None else
+                     (NOTE_TOOLS, lambda call: note_issue(run.pages, notes, call)) if notes is not None else (None, None))
     for retry in (True, False):
-        text = agent_loop(run, stage, payload, key, research, search_first, role) if search else output_text(call_model(run, stage, payload, key, 'model' if retry else 'repair', role))
+        text = agent_loop(run, stage, payload, key, tools, handle, search_first, role) if tools else output_text(call_model(run, stage, payload, key, 'model' if retry else 'repair', role))
         try:
             output = json.loads(text)
             validate_shape(output, schema)
-            align_citations(run.pages, [entry['citation'] for entry in output.get('roles', output.get('items', output.get('new_issues', [])))])
+            align_citations(run.pages, [entry['citation'] for entry in output.get('roles', output.get('items', []))])
             check(output)
             return output
         except ValueError as exc:
@@ -90,7 +92,7 @@ def generate(run, stage, data, schema, check, research=None, search_first=False,
             # One repair round: the server's validation result goes back to the model as data.
             found = {'server_sources': list(research['opened'].values())} if research else {}
             payload = {**payload, 'input': json.dumps({**data, **found, 'rejected_output': text, 'validation_error': str(exc)}, ensure_ascii=False)}
-            search = False
+            tools = None
 
 def analyze(run):
     result = generate(run, 'analysis', {'pages': numbered_pages(run.pages)}, ANALYSIS, lambda output: validate_roles(run.pages, output))
@@ -118,6 +120,7 @@ def stage_input(run, stage, role, context, targets):
         data['acting_role'] = role_card(run, role)
     if stage == 'final':
         data['user_role'] = role_card(run, run.selected_role)
+        data['noted_issues'] = noted(run)
     return data
 
 def research_fields(research):
@@ -149,26 +152,47 @@ def advance(run):
     result['items'].sort(key=lambda item: PRIORITY_ORDER.index(item['priority']))
     save_step(run, {'stage': stage, 'role': None, 'result': result, **research_fields(research)})
 
-def moderate(run, context, issue, said):
+def noted(run):
+    return [{'issue': note.issue, 'reason': note.reason, 'citation': {'page': note.page, 'quote': note.quote}} for note in run.notes.order_by('pk')]
+
+def save_notes(run, notes, number):
+    IssueNote.objects.bulk_create([IssueNote(run=run, step=number, during=note['during'], issue=note['issue'], reason=note['reason'],
+                                             page=note['citation']['page'], quote=note['citation']['quote']) for note in notes])
+
+def moderate(run, context, issue, notes):
     count = role_count(run)
     last = last_speaker(run.steps)
-    issues = all_issues(context)
+    spoken = spoken_roles(context, issue['id'])
     data = {'pages': numbered_pages(run.pages), 'roles': [{'index': index, **role_card(run, index)} for index in range(count)],
-            'history': context, 'issues': issues, 'current_issue_id': issue['id'], 'statements_left': PER_ISSUE - said, 'last_speaker': last}
-    output = generate(run, 'moderator', data, moderator(), lambda output: validate_moderator(run.pages, output, count, last, len(issues)))
-    return {'summary': output['summary'], 'next': [{'speaker': output['speaker'], 'issue_id': issue['id'], 'question': output['question']}],
-            'new_issues': output['new_issues']}
+            'history': context, 'issues': all_issues(context), 'current_issue_id': issue['id'], 'spoken_roles': spoken,
+            'last_speaker': last, 'noted_issues': list(notes)}
+    low = issue.get('low_relevance', [])
+    statements = {step['result']['items'][0]['id']: step['role'] for step in context
+                  if step['stage'] == 'debate' and 'moderator' in step and issue_of(step) == issue['id']}
+    return generate(run, 'moderator', data, moderator(list(statements)),
+                    lambda output: validate_moderator(run.pages, output, count, last, low, spoken, statements), notes=notes)
 
 def debate(run):
     context = history(run, 'debate')
     issue, said = pending_issue(context)
     if issue is None:
-        return save_step(run, {'stage': 'close', 'role': None, 'result': {'summary': gettext('쟁점마다 정해진 발언을 마쳐 토론을 끝내요.'), 'items': []}})
+        return save_step(run, {'stage': 'close', 'role': None, 'result': {'summary': gettext('모든 쟁점의 토론을 마쳤어요.'), 'items': []}})
+    notes = []
     if said:
-        decision = moderate(run, context, issue, said)
+        known = noted(run)
+        notes = known[:]  # The tool skips clauses already noted; only the ones added now are saved.
+        output = moderate(run, context, issue, notes)
+        notes = [{**note, 'during': issue['id']} for note in notes[len(known):]]
+        if output['close']:
+            # The moderator saw nothing new left to say on this issue.
+            save_step(run, {'stage': 'issue_close', 'role': None, 'result': {'summary': output['summary'], 'items': []},
+                            'moderator': {'summary': output['summary'], 'closed': issue['id'], 'question': output['question'], 'by': 'moderator'}})
+            return save_notes(run, notes, len(run.steps))
+        decision = {'summary': output['summary'], 'next': [{'speaker': output['speaker'], 'issue_id': issue['id'], 'question': output['question'],
+                                                            'shifted_by': output['shifted_by']}]}
     else:
-        # The user's role opens every issue; the moderator picks who speaks after it.
-        decision = {'summary': '', 'next': [{'speaker': run.selected_role, 'issue_id': issue['id'], 'question': ''}], 'new_issues': []}
+        # The user's role opens every issue it is part of; the moderator picks who speaks after it.
+        decision = {'summary': '', 'next': [{'speaker': opener(issue, run.selected_role, role_count(run)), 'issue_id': issue['id'], 'question': ''}]}
     turn = decision['next'][0]
     role = turn['speaker']
     targets = reference_ids(context, 'debate', role)
@@ -187,6 +211,16 @@ def debate(run):
     search_first = not any(step['stage'] == 'debate' and step['role'] == role for step in run.steps)
     result = generate(run, 'debate', data, report('debate', targets), check, research, search_first, role)
     save_step(run, {'stage': 'debate', 'role': role, 'result': result, 'moderator': decision, **research_fields(research)})
+    save_notes(run, notes, len(run.steps))
+
+def skip_issue(run):
+    # The user ends the current issue without a model call, once it has had enough statements to judge.
+    issue, said = pending_issue(history(run, 'debate')) if next_stage(run.steps) == 'debate' else (None, 0)
+    if issue is None or said < MIN_BEFORE_SKIP:
+        raise ValueError(gettext('발언이 %(n)s개 이상 나온 쟁점만 넘길 수 있어요.') % {'n': MIN_BEFORE_SKIP})
+    summary = gettext('사용자가 충분하다고 보고 다음 쟁점으로 넘겼어요.')
+    save_step(run, {'stage': 'issue_close', 'role': None, 'result': {'summary': summary, 'items': []},
+                    'moderator': {'summary': summary, 'closed': issue['id'], 'by': 'user'}})
 
 def baseline(run):
     # The comparison arm: same model and document, the question a user would type, no pipeline or checks.
