@@ -1,5 +1,5 @@
 {% load i18n %}<nav class="journey" aria-label="{% trans '검토 과정' %}">
-<a href="{% url 'home' %}" {% if not run %}aria-current="page"{% endif %}>
+<a href="{% url 'home' %}" {% if run %}data-leave="leave-review"{% else %}aria-current="page"{% endif %}>
 <b>1</b>
 <span>{% trans '문서 넣기' %}</span>
 </a>
@@ -31,3 +31,11 @@
 <b>5</b>{% trans '주의 조항' %}</span>
 {% endif %}
 </nav>
+{% if run %}<dialog class="leave-dialog" id="leave-review" aria-labelledby="leave-title">
+<h2 id="leave-title">{% trans '문서 넣기로 돌아갈까요?' %}</h2>
+<p>{% trans '문서 넣기로 되돌아가면 그동안 내용이 사라집니다. 돌아가시겠어요?' %}</p>
+<form method="dialog" class="leave-actions">
+<button class="secondary" value="stay" autofocus>{% trans '계속 보기' %}</button>
+<button class="primary" value="leave">{% trans '돌아가기' %}</button>
+</form>
+</dialog>{% endif %}

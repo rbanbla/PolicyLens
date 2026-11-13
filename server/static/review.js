@@ -27,6 +27,7 @@
   const phase = form.dataset.phase;
   const text = form.dataset;
   let running = false;
+  let reloading = false;
   let skipQueued = false;  // The user asked to move on; sent as soon as no step is in flight.
   const addQueued = [];  // Notes the user picked to debate, sent the same way.
   const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -39,6 +40,7 @@
     if (scroll && follow) scroll.scrollTo({top: scroll.scrollHeight, behavior: reducedMotion ? 'instant' : 'smooth'});
   }
   function showTyping(state) {
+    if (phase !== 'review') showReading();  // The issue and final steps have no chat to watch; the wait screen covers them.
     const follow = nearBottom();
     if (welcome) welcome.hidden = true;
     typing.hidden = false;
@@ -71,6 +73,8 @@
     if (issues && state.issues_html) issues.innerHTML = state.issues_html;
     const current = document.getElementById('current-issue');
     if (current) current.innerHTML = state.current_issue_html;
+    const bar = document.getElementById('skip-bar');
+    if (bar) bar.innerHTML = state.skip_html;
     const skip = document.querySelector('[data-skip]');
     if (skip && skipQueued) {
       skip.disabled = true;
@@ -127,13 +131,17 @@
       label.textContent = text.done;
       form.hidden = true;
       document.getElementById('phase-next').hidden = false;
-      if (phase === 'proposal') window.location.reload();
+      if (phase === 'proposal') {
+        reloading = true;  // The finished page is drawn by the server; keep the wait screen until it arrives.
+        window.location.reload();
+      }
     } catch (problem) {
       error.textContent = problem instanceof TypeError
         ? text.offline
         : problem.message;
       label.textContent = text.saved;
     } finally {
+      if (!reloading) hideReading();
       typing.hidden = true;
       running = false;
       skipQueued = false;

@@ -64,7 +64,7 @@ def current_issue(run):
     if pending:
         # The user may move on once the issue has had enough statements; the last issue then ends the debate.
         return {**issues[pending['id']], 'can_skip': said >= MIN_BEFORE_SKIP and next_stage(run.steps) == 'debate',
-                'is_last': pending['id'] == list(issues)[-1]}
+                'remaining': max(MIN_BEFORE_SKIP - said, 0), 'is_last': pending['id'] == list(issues)[-1]}
     debate = [step for step in steps if step['stage'] == 'debate' and 'moderator' in step]
     return issues[issue_of(debate[-1])] if debate else None
 

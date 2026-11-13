@@ -96,6 +96,7 @@ def review_page(request, run, error='', status=200):
         'phase_done': page == 'summary' or ORDER.index(page) < reached, 'phase_ready': page == 'summary' or ORDER.index(page) <= reached,
         'display_steps': steps, 'issues': issue_cards(run, steps), 'current': current_issue(run), 'new_issues': new_issues(steps), 'notes': issue_notes(run), 'letters': feedback_letters(run), 'research': research_log(run),
         'form_error': error, 'run': run, 'complete': is_complete(run),
+        'starting': request.GET.get('start') == '1',  # Just picked a role: the issue step starts at once, so its wait screen shows from the first paint.
         'selected': run.analysis['roles'][run.selected_role]['name'] if run.selected_role is not None else '',
     }
     return render(request, 'review.html', context, status=status)
@@ -119,7 +120,9 @@ def step_response(request, run, status=200, message=''):
         steps = display_steps(run)
         data['steps_html'] = render_to_string('review_steps.html', {'display_steps': steps, 'all_steps': True})
         data['issues_html'] = render_to_string('issue_cards.html', {'issues': issue_cards(run, steps)})
-        data['current_issue_html'] = render_to_string('current_issue.html', {'current': current_issue(run)})
+        current = current_issue(run)
+        data['current_issue_html'] = render_to_string('current_issue.html', {'current': current})
+        data['skip_html'] = render_to_string('skip_bar.html', {'current': current})
         data['new_issues_html'] = render_to_string('new_issues.html', {'new_issues': new_issues(steps), 'notes': issue_notes(run)})
         response = JsonResponse(data, status=status)
         response['Cache-Control'] = 'no-store'

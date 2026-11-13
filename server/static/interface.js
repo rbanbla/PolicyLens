@@ -30,8 +30,36 @@
     button.disabled = true;
     button.textContent = form.dataset.busy;
     status.textContent = form.dataset.wait;
+    showReading();
   });
 })();
+
+// Covers a wait for the server: the analysis inside the upload post, and the issue step on page 3.
+let readingTimer = null;
+function showReading() {
+  const screen = document.querySelector('[data-reading]');
+  if (!screen || readingTimer) return;
+  screen.hidden = false;
+  const tips = [...screen.querySelectorAll('.reading-tips span')];
+  let index = 0;
+  readingTimer = setInterval(() => {
+    tips[index].classList.remove('is-shown');
+    index = (index + 1) % tips.length;
+    tips[index].classList.add('is-shown');
+  }, 2600);
+}
+function hideReading() {
+  const screen = document.querySelector('[data-reading]');
+  if (!screen) return;
+  clearInterval(readingTimer);
+  readingTimer = null;
+  screen.hidden = true;
+}
+// Coming back with the browser's back button restores the page as it was left; hide the screen again.
+window.addEventListener('pageshow', event => {
+  if (event.persisted) hideReading();
+});
+if (!document.querySelector('[data-reading]')?.hidden) showReading();  // Drawn open by the server; start the tips.
 
 (() => {
   const box = document.querySelector('[data-latest]');
@@ -42,6 +70,7 @@
     if (start.dataset.sent) return event.preventDefault();
     start.dataset.sent = '1';
     event.submitter.textContent = start.dataset.busy;
+    showReading();
   });
   // Loaded after the page, so a slow briefing API never holds up the upload form.
   fetch(box.dataset.url, {credentials: 'same-origin'})
@@ -84,6 +113,26 @@
       if (!slider.matches(':hover') && !slider.querySelector(':focus-visible, [aria-expanded="true"]')) go(index + 1);
     }, 4000);
   }
+})();
+
+(() => {
+  // Going back to the upload step leaves this review behind, so ask first.
+  const link = document.querySelector('[data-leave]');
+  const dialog = link && document.getElementById(link.dataset.leave);
+  if (!dialog?.showModal) return;
+  link.addEventListener('click', event => {
+    event.preventDefault();
+    dialog.showModal();
+  });
+  dialog.addEventListener('click', event => {
+    // A click on the backdrop targets the dialog too, so tell it from the dialog's own padding by position.
+    const box = dialog.getBoundingClientRect();
+    const outside = event.clientX < box.left || event.clientX > box.right || event.clientY < box.top || event.clientY > box.bottom;
+    if (event.target === dialog && outside) dialog.close('stay');
+  });
+  dialog.addEventListener('close', () => {
+    if (dialog.returnValue === 'leave') window.location.assign(link.href);
+  });
 })();
 
 (() => {

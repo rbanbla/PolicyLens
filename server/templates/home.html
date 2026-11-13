@@ -41,4 +41,6 @@
 </div>
 {# The slider sits inside the upload form; its start buttons submit this separate form so the upload checks do not apply. #}
 <form id="latest-start" method="post" hidden data-busy="{% trans '문서의 핵심을 살펴보고 있어요…' %}">{% csrf_token %}</form>
+{# Shown while the server analyzes the document: the post holds this page until the review is ready. #}
+{% include 'reading_screen.html' with kind='document' %}
 {% endblock %}

@@ -1,0 +1,29 @@
+{% load i18n %}{# A full-page wait while the server reads: kind 'document' for the analysis, 'issues' for the issue step, 'final' for the caution clauses. #}
+<div class="reading-screen" data-reading {% if not shown %}hidden{% endif %} role="status" aria-live="polite">
+<div class="reading-art" aria-hidden="true">
+<div class="reading-doc">
+<i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+</div>
+<div class="reading-lens"><span></span></div>
+</div>
+{% if kind == 'issues' %}<h2>{% trans '쟁점을 찾고 있어요' %}</h2>
+<p class="reading-tips">
+<span class="is-shown">{% trans '역할마다 입장이 갈리는 조항을 찾고 있어요' %}</span>
+<span>{% trans '쟁점마다 역할별 입장을 한 줄로 정리하고 있어요' %}</span>
+<span>{% trans '쟁점과 관련이 낮은 역할을 가려내고 있어요' %}</span>
+<span>{% trans '쟁점의 근거가 되는 문장을 확인하고 있어요' %}</span>
+</p>{% elif kind == 'final' %}<h2>{% trans '주의할 조항을 정리하고 있어요' %}</h2>
+<p class="reading-tips">
+<span class="is-shown">{% trans '토론에서 나온 입장을 내 입장에서 다시 읽고 있어요' %}</span>
+<span>{% trans '내게 불리할 수 있는 조항을 고르고 있어요' %}</span>
+<span>{% trans '다른 역할이 같은 문구를 어떻게 읽는지 견주고 있어요' %}</span>
+<span>{% trans '확인할 것과 물어볼 질문을 정리하고 있어요' %}</span>
+</p>{% else %}<h2>{% trans '문서의 핵심을 살펴보고 있어요' %}</h2>
+<p class="reading-tips">
+<span class="is-shown">{% trans '문서에서 영향을 받는 사람들을 찾고 있어요' %}</span>
+<span>{% trans '누가 얻고 누가 부담하는지 나눠 보고 있어요' %}</span>
+<span>{% trans '역할마다 근거가 되는 문장을 확인하고 있어요' %}</span>
+<span>{% trans '어려운 표현을 쉬운 말로 정리하고 있어요' %}</span>
+</p>{% endif %}
+<small>{% trans '문서 분량에 따라 잠시 걸릴 수 있어요.' %}</small>
+</div>

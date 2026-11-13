@@ -1070,3 +1070,69 @@ msgstr "Added to the debate. It comes after the original issues."
 
 msgid "토론이 끝났거나 이미 추가한 메모예요."
 msgstr "The debate has ended or this note was already added."
+
+msgid "문서의 핵심을 살펴보고 있어요"
+msgstr "Reading the key points of your document"
+
+msgid "문서에서 영향을 받는 사람들을 찾고 있어요"
+msgstr "Finding the people the document affects"
+
+msgid "누가 얻고 누가 부담하는지 나눠 보고 있어요"
+msgstr "Sorting out who gains and who bears the cost"
+
+msgid "역할마다 근거가 되는 문장을 확인하고 있어요"
+msgstr "Checking the sentences behind each role"
+
+msgid "어려운 표현을 쉬운 말로 정리하고 있어요"
+msgstr "Putting hard wording into plain words"
+
+msgid "문서 넣기로 돌아갈까요?"
+msgstr "Go back to adding a document?"
+
+msgid "문서 넣기로 되돌아가면 그동안 내용이 사라집니다. 돌아가시겠어요?"
+msgstr "If you go back to adding a document, what you have so far will be gone. Go back?"
+
+msgid "계속 보기"
+msgstr "Stay here"
+
+msgid "돌아가기"
+msgstr "Go back"
+
+msgid "쟁점을 찾고 있어요"
+msgstr "Finding the issues"
+
+msgid "역할마다 입장이 갈리는 조항을 찾고 있어요"
+msgstr "Finding clauses the roles read differently"
+
+msgid "쟁점마다 역할별 입장을 한 줄로 정리하고 있어요"
+msgstr "Writing each role's position on every issue in a line"
+
+msgid "쟁점과 관련이 낮은 역할을 가려내고 있어요"
+msgstr "Setting aside roles an issue barely touches"
+
+msgid "쟁점의 근거가 되는 문장을 확인하고 있어요"
+msgstr "Checking the sentences behind each issue"
+
+msgid "충분히 들었다면 다음 쟁점으로 넘어갈 수 있어요"
+msgstr "Heard enough? You can move on to the next issue"
+
+#, python-format
+msgid "발언 %(counter)s개 뒤에 다음 쟁점으로 넘어갈 수 있어요"
+msgid_plural "발언 %(counter)s개 뒤에 다음 쟁점으로 넘어갈 수 있어요"
+msgstr[0] "You can move on after %(counter)s more statement"
+msgstr[1] "You can move on after %(counter)s more statements"
+
+msgid "주의할 조항을 정리하고 있어요"
+msgstr "Gathering the clauses to watch"
+
+msgid "토론에서 나온 입장을 내 입장에서 다시 읽고 있어요"
+msgstr "Rereading the debate from your position"
+
+msgid "내게 불리할 수 있는 조항을 고르고 있어요"
+msgstr "Picking clauses that may work against you"
+
+msgid "다른 역할이 같은 문구를 어떻게 읽는지 견주고 있어요"
+msgstr "Comparing how other roles read the same wording"
+
+msgid "확인할 것과 물어볼 질문을 정리하고 있어요"
+msgstr "Listing what to check and what to ask"

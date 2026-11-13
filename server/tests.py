@@ -355,13 +355,16 @@ class ReviewFlowTests(TestCase):
         reply = lambda payload, key: response(moderation(data_of(payload), statements=99)) if stage_of(payload) == 'moderator' else two_issues(payload, key)
         self.run_steps(run, 3, reply)
         run.refresh_from_db()
-        self.assertNotIn('data-skip', self.client.get(f'/reviews/{run.pk}/status/', **headers).json()['current_issue_html'])
+        early_bar = self.client.get(f'/reviews/{run.pk}/status/', **headers).json()['skip_html']
+        self.assertIn('disabled', early_bar)
+        self.assertIn('발언 1개 뒤에', early_bar)
         early = self.client.post(f'/reviews/{run.pk}/skip/', {'cursor': '3'}, **headers)
         self.assertEqual(early.status_code, 400)
         self.assertIn('3개 이상', early.json()['message'])
         self.run_steps(run, 1, reply)
         state = self.client.get(f'/reviews/{run.pk}/status/', **headers).json()
-        self.assertIn('다음 쟁점으로', state['current_issue_html'])
+        self.assertIn('다음 쟁점으로', state['skip_html'])
+        self.assertNotIn('disabled', state['skip_html'])
         self.assertEqual(self.client.post(f'/reviews/{run.pk}/skip/', {'cursor': '3'}, **headers).status_code, 409)  # Stale cursor.
         with patch('server.integrations.transport.call') as model:
             skipped = self.client.post(f'/reviews/{run.pk}/skip/', {'cursor': '4'}, **headers)
@@ -374,7 +377,7 @@ class ReviewFlowTests(TestCase):
         self.run_steps(run, 3, reply)
         run.refresh_from_db()
         self.assertEqual([step['moderator']['next'][0]['issue_id'] for step in run.steps[-3:]], ['s1-i2'] * 3)
-        self.assertIn('토론 마치기', self.client.get(f'/reviews/{run.pk}/status/', **headers).json()['current_issue_html'])  # The last issue.
+        self.assertIn('토론 마치기', self.client.get(f'/reviews/{run.pk}/status/', **headers).json()['skip_html'])  # The last issue.
         self.client.post(f'/reviews/{run.pk}/skip/', {'cursor': '8'}, **headers)
         run.refresh_from_db()
         self.assertEqual(next_stage(run.steps), 'debate')

@@ -83,6 +83,7 @@
 </div>
 </div>
 </div>
+<div class="skip-bar" id="skip-bar">{% include 'skip_bar.html' %}</div>
 </section>
 {% else %}<div class="final-heading">
 <span class="tag self-tag">{% blocktranslate %}{{ selected }}의 입장{% endblocktranslate %}</span>
@@ -144,6 +145,7 @@
 </div>
 </div>
 {% endif %}
+{% if phase == 'discussion' and phase_ready and not phase_done %}{% include 'reading_screen.html' with kind='issues' shown=starting %}{% elif phase == 'proposal' and phase_ready and not phase_done %}{% include 'reading_screen.html' with kind='final' shown=starting %}{% endif %}
 <script src="{% static 'review.js' %}" defer>
 </script>
 {% endblock %}
