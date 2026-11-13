@@ -16,6 +16,18 @@ def digest(value):
     return hashlib.sha256(json.dumps(value, sort_keys=True, ensure_ascii=False, default=str, allow_nan=False).encode()).hexdigest()
 
 
+def evaluation_document(doc_id):
+    # Only documents that passed the data gates may be sent to a provider.
+    data = settings.BASE_DIR / 'data'
+    docs = [json.loads(line) for line in (data / 'reviewed' / 'documents.jsonl').read_text(encoding='utf-8').splitlines()]
+    doc = next((doc for doc in docs if doc['doc_id'] == doc_id), None)
+    if doc is None or not doc['published_on']:
+        raise CommandError(f'{doc_id}: documents.jsonl에 발행일이 있는 문서가 아닙니다.')
+    if any(doc.get('gate', {}).get(k) != 'pass' for k in ('technical', 'rights')) or doc.get('external_send_ok') is not True:
+        raise CommandError('기술·권리·외부 전송 게이트를 통과한 문서만 평가할 수 있습니다.')
+    return doc, [page['text'] for page in json.loads((data / 'processed' / doc_id / 'pages.json').read_text(encoding='utf-8'))]
+
+
 class Command(BaseCommand):
     help = '평가 문서를 서비스와 같은 파이프라인으로 실행하고 data/reviewed/runs에 저장한다.'
 
@@ -27,13 +39,7 @@ class Command(BaseCommand):
 
     def handle(self, doc_id, role, no_sources, reference_run=None, **options):
         data = settings.BASE_DIR / 'data'
-        docs = [json.loads(line) for line in (data / 'reviewed' / 'documents.jsonl').read_text(encoding='utf-8').splitlines()]
-        doc = next((doc for doc in docs if doc['doc_id'] == doc_id), None)
-        if doc is None or not doc['published_on']:
-            raise CommandError(f'{doc_id}: documents.jsonl에 발행일이 있는 문서가 아닙니다.')
-        if any(doc.get('gate', {}).get(k) != 'pass' for k in ('technical', 'rights')) or doc.get('external_send_ok') is not True:
-            raise CommandError('기술·권리·외부 전송 게이트를 통과한 문서만 평가할 수 있습니다.')
-        pages = [page['text'] for page in json.loads((data / 'processed' / doc_id / 'pages.json').read_text(encoding='utf-8'))]
+        doc, pages = evaluation_document(doc_id)
         reference = None
         if reference_run:
             try:

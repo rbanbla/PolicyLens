@@ -1636,3 +1636,40 @@ class LatestPolicyTests(TestCase):
             self.assertEqual(self.client.get('/latest/').content.strip(), b'')
         with patch('server.views.newest_youth_policies', return_value=[]):
             self.assertEqual(self.client.get('/latest/').content.strip(), b'')
+
+
+class PersonaComparisonTests(TestCase):
+    def test_persona_comparison_runs_both_arms_on_the_same_roles(self):
+        persona('p1', 29, '판매원', housing_type='월세')
+        persona('p2', 35, '행정 사무원', district='경기-수원시', housing_type='월세')
+        reply = lambda payload, key: response(ANALYSIS) if 'roles' in payload['text']['format']['schema']['properties'] else response(result_for(payload))
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / 'out.json'
+            doc = {'doc_id': 'doc', 'title': '월세', 'published_on': '2026-04-30'}
+            with patch('server.integrations.transport.call', side_effect=reply),                  patch('server.management.commands.compare_personas.evaluation_document', return_value=(doc, [TEXT])):
+                call_command('compare_personas', 'doc', '--repeats', '1', '--output', str(path), stdout=StringIO())
+            result = json.loads(path.read_text(encoding='utf-8'))
+        self.assertEqual([(run['arm'], 'error' in run) for run in result['runs']], [('persona', False), ('none', False)])
+        self.assertEqual([bool(p) for p in result['personas']][:2], [True, True])
+        self.assertEqual(ReviewRun.objects.count(), 0)  # Runs are deleted once written to the file.
+        self.assertEqual(set(result['summary']), {'persona', 'none'})
+        self.assertGreater(result['summary']['none']['statements'], 0)
+
+
+class PersonaMetricTests(SimpleTestCase):
+    def test_metrics_count_reply_types_shared_demands_similarity_and_leaks(self):
+        from .agents.memory.context import numbered_steps
+        from .management.commands.compare_personas import measure
+        statement = lambda role, issue, response, request, reason='사정': {
+            'stage': 'debate', 'role': role, 'moderator': {'next': [{'issue_id': issue}]},
+            'result': {'items': [{'response': response, 'request': request, 'reason': reason}]}}
+        steps = numbered_steps([statement(0, 'a', '제한', '기준을 공개해 주세요'), statement(1, 'a', '제한', '기준을 공개해 주세요'),
+                                statement(0, 'b', '반박', '월세 상한을 올려 주세요', '관악구에 혼자 살아 부담이 큽니다')])
+        personas = [{'district': '서울-관악구', 'occupation': '판매원', 'age': 29}, None]
+        metrics = measure(steps, personas, [{'tokens': 10}, {'tokens': 5}])
+        self.assertEqual(metrics['responses'], {'수용': 0, '제한': 2, '반박': 1})
+        self.assertEqual(metrics['limit_share'], 0.667)
+        self.assertEqual(metrics['generic_request_share'], 0.667)
+        self.assertEqual(metrics['cross_role_request_similarity'], 1.0)  # Only issue a has two roles, and they asked the same.
+        self.assertEqual(metrics['persona_detail_leaks'], 1)
+        self.assertEqual((metrics['calls'], metrics['tokens']), (2, 15))
