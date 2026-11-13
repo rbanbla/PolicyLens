@@ -15,11 +15,12 @@ def setting(name, default=''):
 
 
 def configuration():
-    return setting('OPENAI_API_KEY').strip(), setting('POLICYLENS_SUMMARY_MODEL', 'gpt-4.1').strip()
+    # VibeHub injects the app's approved model key as MINIAPP_LLM_*; an explicit OPENAI_* still wins.
+    return setting('OPENAI_API_KEY', setting('MINIAPP_LLM_API_KEY')).strip(), setting('POLICYLENS_SUMMARY_MODEL', 'gpt-4.1').strip()
 
 
 def provider():
-    base = setting('OPENAI_BASE_URL', 'https://api.openai.com/v1').rstrip('/')
+    base = setting('OPENAI_BASE_URL', setting('MINIAPP_LLM_BASE_URL', 'https://api.openai.com/v1')).rstrip('/')
     mode = setting('POLICYLENS_API_MODE', 'responses')
     parsed = urlsplit(base)
     if parsed.scheme != 'https' or not parsed.hostname or parsed.username or parsed.password or parsed.query or parsed.fragment:

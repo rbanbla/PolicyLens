@@ -19,8 +19,9 @@ MAX_TOOL_ROUNDS = 3
 def create_run(owner, title, pages, language='ko'):
     _, model = transport.configuration()
     return ReviewRun.objects.create(
-        owner=owner, title=title.strip()[:200] or gettext('정책 검토'), pages=pages, language=language,
-        model=model, provider=transport.identity(), structured_facts=True,
+        # PostgreSQL cannot store NUL, which PDF text sometimes carries; clean() already ignores it in quotes.
+        owner=owner, title=title.strip()[:200] or gettext('정책 검토'), pages=[page.replace('\x00', '') for page in pages], language=language,
+        model=model, provider=transport.identity(),
         prompts={p.stem: p.read_text(encoding='utf-8') for p in (settings.BASE_DIR / 'prompts').glob('*.md')})
 
 def ready_key(run):
@@ -124,7 +125,7 @@ def stage_input(run, stage, role, context, targets):
     return data
 
 def research_fields(research):
-    return {'research': research['log'], 'policy_facts': research['facts']} if research else {}
+    return {'research': research['log']} if research else {}
 
 def save_step(run, step):
     run.steps = numbered_steps(run.steps + [step])
@@ -138,7 +139,7 @@ def advance(run):
     context = history(run, stage)
     targets = reference_ids(context, stage, None)
     data = stage_input(run, stage, None, context, targets)
-    research = new_research(run.as_of, structured_facts=run.structured_facts) if uses_sources(run, stage) else None
+    research = new_research(run.as_of) if uses_sources(run, stage) else None
     def check(output):
         validate_report(run.pages, output, stage, targets)
         if stage == 'issues':
@@ -200,7 +201,7 @@ def debate(run):
     data['assigned_claims'] = [assigned_claim(context, turn['issue_id'], role)]
     data['moderator_question'] = turn['question']
     required = [target for target in data['assigned_claims'][0].values() if target]
-    research = new_research(run.as_of, structured_facts=run.structured_facts) if uses_sources(run, 'debate') else None
+    research = new_research(run.as_of) if uses_sources(run, 'debate') else None
     def check(output):
         # The server assigned the issue and the claims to answer, so it links any the model left out instead of failing the turn.
         for item in output['items']:

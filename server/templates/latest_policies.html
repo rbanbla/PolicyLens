@@ -1,0 +1,24 @@
+{% load i18n %}{% if policies %}<p class="latest-prompt">{% trans '살펴볼 문서가 없으신가요?' %}</p>
+<section class="latest-slider" data-latest-slider aria-roledescription="carousel" aria-label="{% trans '최신 청년 정책' %}">
+<div class="latest-viewport">
+<div class="latest-track">
+{% for policy in policies %}
+<article class="latest-slide" data-slide aria-roledescription="slide" aria-label="{{ forloop.counter }} / {{ policies|length }}">
+<button type="button" class="policy-card" data-open aria-expanded="false" aria-controls="latest-{{ policy.id }}">
+<span class="policy-meta"><span class="policy-category" style="--hue:{{ policy.hue }}">{{ policy.category }}</span><small>{{ policy.approved|date:'Y.m.d' }}</small></span>
+<strong>{{ policy.title }}</strong>
+</button>
+<div class="latest-detail" id="latest-{{ policy.id }}" hidden>
+<div class="policy-text">{{ policy.text }}</div>
+<div class="policy-actions">
+<button type="button" class="secondary" data-close>{% trans '닫기' %}</button>
+<button class="primary" form="latest-start" name="policy" value="{{ policy.id }}">{% trans '이 정책으로 시작하기' %} <span>↗</span></button>
+</div>
+</div>
+</article>
+{% endfor %}
+</div>
+</div>
+{% if policies|length > 1 %}<div class="latest-dots">{% for policy in policies %}<button type="button" data-dot aria-label="{% blocktrans with number=forloop.counter %}{{ number }}번째 정책{% endblocktrans %}"></button>{% endfor %}</div>{% endif %}
+</section>
+{% endif %}
