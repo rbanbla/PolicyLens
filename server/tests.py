@@ -52,6 +52,18 @@ ITEMS = {
 }
 
 
+# A developer's .env may turn the dummy mode on; tests run on the real code paths unless they turn it on themselves.
+DUMMY_OFF = patch.dict('os.environ', {'POLICYLENS_DUMMY': '0'})
+
+
+def setUpModule():
+    DUMMY_OFF.start()
+
+
+def tearDownModule():
+    DUMMY_OFF.stop()
+
+
 def response(data):
     return {'status': 'completed', 'output': [{'type': 'message', 'content': [{'type': 'output_text', 'text': json.dumps(data)}]}]}
 
@@ -404,7 +416,46 @@ class ReviewFlowTests(TestCase):
         self.assertEqual({step['moderator']['next'][0]['issue_id'] for step in run.steps if step['stage'] == 'debate'}, {'s1-i1'})  # Never debated.
         self.assertEqual(data_of(seen[-1])['noted_issues'][0]['issue'], '새로 부딪힌 조항')
         final = data_of(next(payload for payload in reversed(payloads) if stage_of(payload) == 'final'))
-        self.assertEqual(final['noted_issues'], [{'issue': '새로 부딪힌 조항', 'reason': '임대인 협조 의무와 부딪혀요', 'citation': {'page': 1, 'quote': '임대인은 임대차 신고에 협조한다.'}}])
+        self.assertEqual(final['noted_issues'], [{'issue': '새로 부딪힌 조항', 'reason': '임대인 협조 의무와 부딪혀요', 'citation': {'page': 1, 'quote': '임대인은 임대차 신고에 협조한다.'}, 'added': False}])
+
+    def test_user_adds_a_note_to_the_debate_after_the_original_issues(self):
+        run = self.create_run()
+        self.client.post(f'/reviews/{run.pk}/select/', {'role': '0'})
+        headers = {'HTTP_ACCEPT': 'application/json'}
+        self.run_steps(run, 2)
+        note = {'issue': '새로 부딪힌 조항', 'reason': '임대인 협조 의무와 부딪혀요', 'page': 1, 'quote': '임대인은 임대차 신고에 협조한다.'}
+        payloads, moderated = [], []
+        def reply(payload, key):
+            payloads.append(payload)
+            if stage_of(payload) == 'moderator' and not moderated:
+                moderated.append(payload)  # The first moderator call notes one clause, then the debate goes on.
+                return {'status': 'completed', 'output': [{'type': 'function_call', 'call_id': 'c1', 'name': 'note_issue', 'arguments': json.dumps(note)}]}
+            return report_response(payload, key)
+        self.run_steps(run, 1, reply)
+        run.refresh_from_db()
+        saved = run.notes.get()
+        url = f'/reviews/{run.pk}/notes/{saved.pk}/debate/'
+        self.assertIn(f'data-add-note="{url}"', self.client.get(f'/reviews/{run.pk}/status/', **headers).json()['new_issues_html'])
+        self.assertEqual(self.client.post(url, {'cursor': '2'}, **headers).status_code, 409)  # Stale cursor.
+        with patch('server.integrations.transport.call') as model:
+            added = self.client.post(url, {'cursor': '3'}, **headers)
+            model.assert_not_called()
+        self.assertEqual(added.status_code, 200)
+        self.assertIn('토론에 추가했어요', added.json()['new_issues_html'])
+        self.assertIn('쟁점 02', added.json()['new_issues_html'])
+        self.assertEqual(self.client.post(url, {'cursor': '3'}, **headers).status_code, 400)  # Already added.
+        self.run_to_end(run, reply)
+        run.refresh_from_db()
+        issues = [step['moderator']['next'][0]['issue_id'] for step in run.steps if step['stage'] == 'debate']
+        self.assertEqual(issues, ['s1-i1'] * 3 + [f'note-{saved.pk}'] * 3)  # Debated after the original issue, like any other.
+        self.assertEqual([step['moderator']['closed'] for step in run.steps if step['stage'] == 'issue_close'], ['s1-i1', f'note-{saved.pk}'])
+        final = data_of(next(payload for payload in reversed(payloads) if stage_of(payload) == 'final'))
+        self.assertTrue(final['noted_issues'][0]['added'])
+        self.assertEqual(final['history'][-1]['stage'], 'added_issues')
+        review = self.client.get(f'/reviews/{run.pk}/?page=review').content.decode()
+        self.assertIn('쟁점 02 · 새로 부딪힌 조항', review)  # The divider in the chat.
+        self.assertNotIn('data-add-note', review)  # The debate is closed.
+        self.assertEqual(self.client.post(url, {'cursor': str(len(run.steps))}, **headers).status_code, 400)
 
     def test_a_clause_already_noted_is_not_noted_again(self):
         from .agents.tools.notes import note_issue

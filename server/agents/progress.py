@@ -2,7 +2,7 @@ import re
 
 from django.utils.translation import gettext as _, gettext_noop
 
-from .memory.context import all_issues, issue_of, numbered_steps, opener, pending_issue
+from .memory.context import added_issues, all_issues, issue_of, numbered_steps, opener, pending_issue
 from .planning import MIN_BEFORE_SKIP, next_phase, next_stage, phase_of
 
 LABELS = {'independent': gettext_noop('입장 살펴보기'), 'issues': gettext_noop('쟁점 정리'), 'debate': gettext_noop('쟁점 토론'), 'issue_close': gettext_noop('쟁점 마무리'), 'close': gettext_noop('토론 마무리'), 'final': gettext_noop('주의 조항 정리')}
@@ -46,19 +46,21 @@ def new_issues(steps):
 
 
 def issue_notes(run):
-    issues = numbered_issues(numbered_steps(run.steps))
-    return [{'id': f'note-{note.pk}', 'step': note.step, 'issue': note.issue, 'reason': note.reason, 'page': note.page, 'quote': note.quote,
-             'during': issues.get(note.during)} for note in run.notes.order_by('pk')]
+    issues = numbered_issues(numbered_steps(run.steps) + added_issues(run))
+    debating = next_stage(run.steps) == 'debate'  # Notes can join the debate until it closes.
+    return [{'id': f'note-{note.pk}', 'pk': note.pk, 'run': run.pk, 'step': note.step, 'issue': note.issue, 'reason': note.reason, 'page': note.page, 'quote': note.quote,
+             'during': issues.get(note.during), 'added': issues.get(f'note-{note.pk}'), 'can_add': debating and note.added_at is None}
+            for note in run.notes.order_by('pk')]
 
 
 def current_issue(run):
     steps = numbered_steps(run.steps)
-    issues = numbered_issues(steps)
+    issues = numbered_issues(steps + added_issues(run))
     if not issues:
         return None
     if steps[-1]['stage'] in ('close', 'final'):
         return {'ended': True}
-    pending, said = pending_issue(steps)
+    pending, said = pending_issue(steps + added_issues(run))
     if pending:
         # The user may move on once the issue has had enough statements; the last issue then ends the debate.
         return {**issues[pending['id']], 'can_skip': said >= MIN_BEFORE_SKIP and next_stage(run.steps) == 'debate',
@@ -73,7 +75,7 @@ def is_complete(run):
 
 def display_steps(run):
     steps = numbered_steps(run.steps)
-    issues = numbered_issues(steps)
+    issues = numbered_issues(steps + added_issues(run))
     notes = issue_notes(run)
     opened, previous = set(), None
     for index, step in enumerate(steps):
@@ -89,8 +91,8 @@ def display_steps(run):
         opened.add(issue)
         previous = issue or previous
         for item in step['result']['items']:
-            item['references'] = [{'id': target, 'page': phase_of(steps[int(target.split('-')[0][1:]) - 1]['stage'])}
-                                  for target in item.get('target_ids', [])]
+            item['references'] = [{'id': target, 'page': 'review' if target.startswith('note-') else phase_of(steps[int(target.split('-')[0][1:]) - 1]['stage'])}
+                                  for target in item.get('target_ids', [])]  # An added note's card sits under the debate.
     return steps
 
 
@@ -99,7 +101,7 @@ def progress(run):
     next_label, next_name, next_role = '', '', None
     if stage and run.selected_role is not None:
         # Only an issue's opening speaker is known ahead; after that the moderator decides inside the step.
-        issue, said = pending_issue(numbered_steps(run.steps))
+        issue, said = pending_issue(numbered_steps(run.steps) + added_issues(run))
         if stage == 'debate' and issue and not said:
             next_role = opener(issue, run.selected_role, len(run.analysis['roles']))
         next_label = step_label(run, stage, next_role)

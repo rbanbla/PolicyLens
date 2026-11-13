@@ -875,13 +875,18 @@ small,.subtle {
   overflow-wrap:anywhere
 }
 .is-self {
-  grid-template-columns:minmax(0,1fr);
+  grid-template-columns:minmax(0,1fr) 34px;
   align-self:flex-end;
   max-width:83%;
   margin-left:auto
 }
 .is-self>.avatar {
-  display:none
+  grid-column:2;
+  grid-row:1
+}
+.is-self>div {
+  grid-column:1;
+  grid-row:1
 }
 .is-self .speaker {
   justify-content:flex-end
@@ -1133,6 +1138,21 @@ blockquote small {
   cursor:pointer
 }
 .current-issue .skip-issue:disabled {
+  cursor:default;
+  opacity:.65
+}
+.add-note {
+  margin-top:12px;
+  border:1px solid #c9d7ea;
+  background:#fff;
+  color:#4f6787;
+  font:inherit;
+  font-size:12px;
+  padding:5px 11px;
+  border-radius:8px;
+  cursor:pointer
+}
+.add-note:disabled {
   cursor:default;
   opacity:.65
 }
@@ -1565,7 +1585,7 @@ blockquote small {
     font-size:10px
   }
   .is-self {
-    grid-template-columns:minmax(0,1fr);
+    grid-template-columns:minmax(0,1fr) 26px;
     max-width:89%
   }
   .speaker {

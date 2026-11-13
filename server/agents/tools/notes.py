@@ -4,7 +4,7 @@ from .documents import align_citations, check_quote, clean
 from .sources import tool
 
 TOOLS = [
-    tool('note_issue', '토론 중 원래 쟁점에 없던 조항이 새로 부딪히면 쟁점 메모에 남긴다. 메모한 쟁점은 토론하지 않고 기록만 한다.',
+    tool('note_issue', '토론 중 원래 쟁점에 없던 조항이 새로 부딪히면 쟁점 메모에 남긴다. 메모한 쟁점은 사용자가 고를 때만 원래 쟁점 뒤에 토론한다.',
          {'issue': {'type': 'string'}, 'reason': {'type': 'string'}, 'page': {'type': 'integer'}, 'quote': {'type': 'string'}}),
 ]
 

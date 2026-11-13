@@ -13,6 +13,13 @@ def numbered_steps(steps):
     return result
 
 
+def added_issues(run):
+    # Notes the user added to the debate, as one issues entry after the steps; they are debated in the order they were added.
+    items = [{'id': f'note-{note.pk}', 'issue': note.issue, 'reason': note.reason, 'citation': {'page': note.page, 'quote': note.quote}}
+             for note in run.notes.filter(added_at__isnull=False).order_by('added_at', 'pk')]
+    return [{'stage': 'added_issues', 'role': None, 'result': {'summary': '사용자가 토론에 추가한 쟁점 메모', 'items': items}}] if items else []
+
+
 def history(run, stage):
     # The issues step reads only the document and the role cards; the debate and the final step see everything said so far.
     allowed = {'issues': [], 'moderator': ['issues', 'debate', 'issue_close'], 'debate': ['issues', 'debate', 'issue_close'], 'final': ['issues', 'debate', 'issue_close']}[stage]
@@ -20,13 +27,15 @@ def history(run, stage):
     return [{'stage': step['stage'], 'role': step['role'], 'result': step['result'],
              'speaker': 'PolicyLens' if step['role'] is None else roles[step['role']]['name'],
              **({'moderator': step['moderator']} if 'moderator' in step else {})}
-            for step in numbered_steps(run.steps) if step['stage'] in allowed]
+            for step in numbered_steps(run.steps) if step['stage'] in allowed] + [
+            {**step, 'speaker': 'PolicyLens'} for step in (added_issues(run) if allowed else [])]
 
 
 def all_issues(context):
-    # Issues picked up front, then the ones the moderator added during the debate.
+    # Issues picked up front, then the ones the moderator added during the debate (older runs), then the notes the user added.
     return ([item for step in context if step['stage'] == 'issues' for item in step['result']['items']]
-            + [item for step in context for item in step.get('moderator', {}).get('new_issues', [])])
+            + [item for step in context for item in step.get('moderator', {}).get('new_issues', [])]
+            + [item for step in context if step['stage'] == 'added_issues' for item in step['result']['items']])
 
 
 def issue_of(step):

@@ -9,7 +9,7 @@ from django.utils.translation import gettext as _, gettext_noop
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST, require_GET
 from .models import ReviewRun
-from .agents.runner import analyze, advance, baseline, create_run, skip_issue
+from .agents.runner import add_note, analyze, advance, baseline, create_run, skip_issue
 from .agents.planning import ORDER, next_phase, role_count
 from .agents.progress import progress, baseline_text, current_issue, display_steps, feedback_letters, is_complete, issue_cards, issue_notes, new_issues, pipeline_text, research_log
 from .agents.tools.documents import read_pages
@@ -167,6 +167,23 @@ def skip(request, pk):
                 run.refresh_from_db()
                 return step_response(request, run, 409, _(CONFLICT))
             skip_issue(run)
+    except ValueError as exc:
+        return step_response(request, run, 400, str(exc))
+    return step_response(request, run)
+
+
+@require_POST
+def debate_note(request, pk, note):
+    run = owned(request, pk)
+    if request.POST.get('cursor') != str(len(run.steps)):
+        return step_response(request, run, 409, _(CONFLICT))
+    try:
+        with transaction.atomic():
+            # The same snapshot claim as a skip, so a note never joins after the step that closes the debate has read the issues.
+            if not ReviewRun.objects.filter(pk=run.pk, steps=run.steps).update(error=''):
+                run.refresh_from_db()
+                return step_response(request, run, 409, _(CONFLICT))
+            add_note(run, note)
     except ValueError as exc:
         return step_response(request, run, 400, str(exc))
     return step_response(request, run)

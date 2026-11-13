@@ -19,11 +19,12 @@
 </article>{% endfor %}
 {% for note in notes %}<article class="issue-card" id="{{ note.id }}">
 <div class="section-heading">
-<span class="issue-number">{% trans '메모' %}</span>
+<span class="issue-number">{% if note.added %}{% blocktranslate with number=note.added.number|stringformat:'02d' %}쟁점 {{ number }}{% endblocktranslate %}{% else %}{% trans '메모' %}{% endif %}</span>
 {% if note.during %}<span class="tag">{% blocktranslate with number=note.during.number|stringformat:'02d' %}쟁점 {{ number }} 토론 중{% endblocktranslate %}</span>{% endif %}
 </div>
 <h3>{{ note.issue }}</h3>
 <p>{{ note.reason }}</p>
 <blockquote>{{ note.quote }}<small>{% blocktranslate with page=note.page %}{{ page }}쪽{% endblocktranslate %}</small>
 </blockquote>
+{% if note.added %}<p class="subtle">{% trans '토론에 추가했어요. 원래 쟁점 뒤에 이어서 토론해요.' %}</p>{% elif note.can_add %}<button type="button" class="add-note" data-add-note="{% url 'debate_note' note.run note.pk %}" data-queued="{% trans '이번 발언이 끝나면 추가해요' %}">{% trans '이 쟁점도 토론하기' %}</button>{% endif %}
 </article>{% endfor %}

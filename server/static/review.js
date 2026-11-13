@@ -28,6 +28,7 @@
   const text = form.dataset;
   let running = false;
   let skipQueued = false;  // The user asked to move on; sent as soon as no step is in flight.
+  const addQueued = [];  // Notes the user picked to debate, sent the same way.
   const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
   const messageGap = 200;
 
@@ -79,6 +80,11 @@
     if (added) {
       added.innerHTML = state.new_issues_html;
       document.getElementById('new-issues-section').hidden = !state.new_issues_html.trim();
+      for (const note of added.querySelectorAll('[data-add-note]')) {
+        if (!addQueued.includes(note.dataset.addNote)) continue;
+        note.disabled = true;
+        note.textContent = note.dataset.queued;
+      }
     }
   }
   async function request(url, options = {}, animate = false) {
@@ -106,6 +112,10 @@
     try {
       let state = await request(form.dataset.statusUrl);
       while (state.next_phase === phase) {
+        if (addQueued.length) {
+          state = await request(addQueued.shift(), {method: 'POST', body: new FormData(form)});
+          continue;
+        }
         if (skipQueued) {
           skipQueued = false;
           state = await request(form.dataset.skipUrl, {method: 'POST', body: new FormData(form)});
@@ -127,6 +137,7 @@
       typing.hidden = true;
       running = false;
       skipQueued = false;
+      addQueued.length = 0;
       button.disabled = false;
       button.hidden = false;
       button.textContent = text.retry;
@@ -134,6 +145,14 @@
   }
   form.addEventListener('submit', start);
   document.addEventListener('click', event => {
+    const note = event.target.closest('[data-add-note]');
+    if (note && !note.disabled) {
+      addQueued.push(note.dataset.addNote);
+      note.disabled = true;
+      if (running) note.textContent = note.dataset.queued;
+      else start();
+      return;
+    }
     const skip = event.target.closest('[data-skip]');
     if (!skip || skip.disabled) return;
     skipQueued = true;

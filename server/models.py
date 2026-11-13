@@ -23,7 +23,7 @@ class ReviewRun(models.Model):
 
 
 class IssueNote(models.Model):
-    # A clause the moderator saw clash during the debate. Noted only: it is never debated.
+    # A clause the moderator saw clash during the debate. Debated only if the user adds it, after the issues picked up front.
     run = models.ForeignKey(ReviewRun, on_delete=models.CASCADE, related_name='notes')
     step = models.IntegerField()  # Number (from 1, as shown) of the step whose moderator call wrote it.
     during = models.CharField(max_length=20)  # The issue being debated then.
@@ -31,6 +31,7 @@ class IssueNote(models.Model):
     reason = models.TextField()
     page = models.IntegerField()
     quote = models.TextField()
+    added_at = models.DateTimeField(null=True, blank=True)  # When the user added it to the debate; added notes are debated in this order.
     created_at = models.DateTimeField(auto_now_add=True)
 
 

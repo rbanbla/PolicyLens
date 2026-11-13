@@ -2,6 +2,7 @@ import json
 import random
 import time
 from django.conf import settings
+from django.utils import timezone
 from django.utils.translation import gettext
 from .schemas import ANALYSIS, BASELINE_ITEMS, PRIORITY_ORDER, SOURCE_STAGES, moderator, report
 from .planning import MIN_BEFORE_SKIP, last_speaker, next_stage, role_count
@@ -154,7 +155,8 @@ def advance(run):
     save_step(run, {'stage': stage, 'role': None, 'result': result, **research_fields(research)})
 
 def noted(run):
-    return [{'issue': note.issue, 'reason': note.reason, 'citation': {'page': note.page, 'quote': note.quote}} for note in run.notes.order_by('pk')]
+    return [{'issue': note.issue, 'reason': note.reason, 'citation': {'page': note.page, 'quote': note.quote}, 'added': note.added_at is not None}
+            for note in run.notes.order_by('pk')]
 
 def save_notes(run, notes, number):
     IssueNote.objects.bulk_create([IssueNote(run=run, step=number, during=note['during'], issue=note['issue'], reason=note['reason'],
@@ -222,6 +224,11 @@ def skip_issue(run):
     summary = gettext('사용자가 충분하다고 보고 다음 쟁점으로 넘겼어요.')
     save_step(run, {'stage': 'issue_close', 'role': None, 'result': {'summary': summary, 'items': []},
                     'moderator': {'summary': summary, 'closed': issue['id'], 'by': 'user'}})
+
+def add_note(run, pk):
+    # The user picks a note to debate after the issues picked up front; the closing step settles what was debated, so only before it.
+    if next_stage(run.steps) != 'debate' or not run.notes.filter(pk=pk, added_at__isnull=True).update(added_at=timezone.now()):
+        raise ValueError(gettext('토론이 끝났거나 이미 추가한 메모예요.'))
 
 def baseline(run):
     # The comparison arm: same model and document, the question a user would type, no pipeline or checks.
