@@ -6,6 +6,7 @@ from urllib.request import Request, urlopen
 from django.conf import settings
 from django.utils.translation import gettext as _
 from dotenv import dotenv_values
+from . import dummy
 
 
 def setting(name, default=''):
@@ -14,7 +15,14 @@ def setting(name, default=''):
     return os.environ.get(name) or local.get(name) or default
 
 
+def dummy_mode():
+    # POLICYLENS_DUMMY=1 swaps every model and briefing call for canned data, for UI work without a provider.
+    return setting('POLICYLENS_DUMMY') == '1'
+
+
 def configuration():
+    if dummy_mode():
+        return 'dummy', 'dummy-model'
     # VibeHub injects the app's approved model key as MINIAPP_LLM_*; an explicit OPENAI_* still wins.
     return setting('OPENAI_API_KEY', setting('MINIAPP_LLM_API_KEY')).strip(), setting('POLICYLENS_SUMMARY_MODEL', 'gpt-4.1').strip()
 
@@ -31,7 +39,8 @@ def provider():
 
 
 def identity():
-    return '|'.join(provider())
+    # Runs record this, so a dummy run never continues against a real provider or the other way round.
+    return 'dummy' if dummy_mode() else '|'.join(provider())
 
 
 def chat_messages(payload):
@@ -52,6 +61,8 @@ def chat_messages(payload):
 
 
 def call(payload, key):
+    if dummy_mode():
+        return dummy.respond(payload)
     base, mode = provider()
     if mode == 'chat_completions':
         body = {'model': payload['model'], 'messages': chat_messages(payload),

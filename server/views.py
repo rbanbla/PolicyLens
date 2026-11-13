@@ -14,6 +14,7 @@ from .agents.planning import ORDER, next_phase, role_count
 from .agents.progress import progress, baseline_text, current_issue, display_steps, feedback_letters, is_complete, issue_cards, issue_notes, new_issues, pipeline_text, research_log
 from .agents.tools.documents import read_pages
 from .integrations.policy_suggest import newest_youth_policies
+from .integrations.transport import dummy_mode
 
 MODEL_ERRORS = (ValueError, KeyError, TypeError, OSError)
 CONFLICT = gettext_noop('다른 요청에서 단계가 진행되었습니다. 저장된 상태에서 다시 시작하세요.')
@@ -29,10 +30,11 @@ def attempt(run, action):
 
 def latest_policies():
     # Cached so a home visit does not call the briefing API each time; the start check reads the same list.
-    policies = cache.get('latest_policies')
+    key = 'latest_policies:dummy' if dummy_mode() else 'latest_policies'  # Toggling the dummy mode never serves the other list.
+    policies = cache.get(key)
     if policies is None:
         policies = newest_youth_policies()
-        cache.set('latest_policies', policies, 30 * 60)
+        cache.set(key, policies, 30 * 60)
     return policies
 
 

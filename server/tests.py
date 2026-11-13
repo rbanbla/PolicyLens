@@ -1636,3 +1636,45 @@ class LatestPolicyTests(TestCase):
             self.assertEqual(self.client.get('/latest/').content.strip(), b'')
         with patch('server.views.newest_youth_policies', return_value=[]):
             self.assertEqual(self.client.get('/latest/').content.strip(), b'')
+
+
+class DummyModeTests(TestCase):
+    def setUp(self):
+        for patcher in (patch.dict('os.environ', {'POLICYLENS_DUMMY': '1'}), patch('server.integrations.dummy.DELAY', 0)):
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
+    def test_every_screen_runs_on_dummy_data_without_a_provider(self):
+        from django.core.cache import cache
+        cache.clear()
+        with patch('server.integrations.transport.urlopen') as network, patch('server.integrations.policy_suggest.urlopen') as briefing:
+            self.assertIn('[더미]', self.client.get('/latest/').content.decode())
+            self.client.post('/', {'text': TEXT + ' 지원 기한은 공고일부터 30일 이내로 한다. 세부 기준은 시행 지침으로 정한다.'})
+            run = ReviewRun.objects.latest('pk')
+            self.assertEqual((run.provider, run.model, len(run.analysis['roles'])), ('dummy', 'dummy-model', 3))
+            self.client.post(f'/reviews/{run.pk}/select/', {'role': '0'})
+            for _ in range(40):
+                run.refresh_from_db()
+                if run.steps and run.steps[-1]['stage'] == 'final':
+                    break
+                self.client.post(f'/reviews/{run.pk}/step/', {'cursor': str(len(run.steps))})
+            self.client.post(f'/reviews/{run.pk}/compare/run/')
+            network.assert_not_called()
+            briefing.assert_not_called()
+        run.refresh_from_db()
+        self.assertEqual(run.error, '')
+        self.assertEqual(run.steps[-1]['stage'], 'final')
+        self.assertEqual([step['stage'] for step in run.steps].count('issue_close'), 3)
+        self.assertEqual(run.notes.count(), 1)
+        self.assertTrue(run.baseline_items)
+        self.assertContains(self.client.get(f'/reviews/{run.pk}/?page=discussion'), '관련 낮음')
+        self.assertContains(self.client.get(f'/reviews/{run.pk}/?page=review'), '더미 메모')
+
+    def test_a_dummy_run_does_not_continue_on_a_real_provider(self):
+        self.client.post('/', {'text': TEXT})
+        run = ReviewRun.objects.latest('pk')
+        self.client.post(f'/reviews/{run.pk}/select/', {'role': '0'})
+        with patch('server.integrations.transport.dummy_mode', return_value=False), patch('server.integrations.transport.configuration', return_value=('key', 'model')):
+            self.client.post(f'/reviews/{run.pk}/step/', {'cursor': '0'})
+        run.refresh_from_db()
+        self.assertIn('모델 제공자 설정이 변경', run.error)

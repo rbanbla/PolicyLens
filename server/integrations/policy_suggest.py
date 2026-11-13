@@ -6,7 +6,8 @@ import zlib
 from urllib.parse import urlencode
 from urllib.request import urlopen
 from django.utils.translation import gettext as _
-from server.integrations.transport import setting
+from server.integrations import dummy
+from server.integrations.transport import dummy_mode, setting
 
 
 #####정책브리핑 에서 정책 불러오는 코드
@@ -35,6 +36,8 @@ def plain(markup):
 
 
 def newest_youth_policies(k=3, today=None):
+    if dummy_mode():
+        return dummy.latest_policies()[:k]
 
     end, found = today or datetime.date.today(), {}
     for _window in range(LOOKBACK):
