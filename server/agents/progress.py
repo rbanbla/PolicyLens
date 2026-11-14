@@ -91,9 +91,17 @@ def display_steps(run):
         opened.add(issue)
         previous = issue or previous
         for item in step['result']['items']:
-            item['references'] = [{'id': target, 'page': 'review' if target.startswith('note-') else phase_of(steps[int(target.split('-')[0][1:]) - 1]['stage'])}
-                                  for target in item.get('target_ids', [])]  # An added note's card sits under the debate.
+            item['references'] = [reference(run, steps, target) for target in item.get('target_ids', [])]
     return steps
+
+
+def reference(run, steps, target):
+    # Name the linked speaker so several links on one message tell apart; an issue card or note has no speaker.
+    if target.startswith('note-'):
+        return {'id': target, 'page': 'review', 'note': True}  # An added note's card sits under the debate.
+    source = steps[int(target.split('-')[0][1:]) - 1]
+    return {'id': target, 'page': phase_of(source['stage']),
+            'speaker': speaker_name(run, source['role']) if source['role'] is not None else ''}
 
 
 def progress(run):

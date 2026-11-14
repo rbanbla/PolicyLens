@@ -93,7 +93,7 @@
 </div>
 </div>
 {% endif %}
-{% if item.references %}<div class="message-references">{% for ref in item.references %}<a href="?page={{ ref.page }}#{{ ref.id }}">{% trans '연결된 입장' %} ↗</a>{% endfor %}</div>{% endif %}
+{% if item.references %}<div class="message-references">{% for ref in item.references %}<a href="?page={{ ref.page }}#{{ ref.id }}">{% if ref.speaker %}{% trans '연결된 입장' %} · {{ ref.speaker }}{% elif ref.note %}{% trans '메모' %}{% else %}{% trans '쟁점' %}{% endif %} ↗</a>{% endfor %}</div>{% endif %}
 </article>
 {% empty %}{% if not step.skipped %}<div class="chat-message is-moderator" id="s{{ step.number }}-empty" data-phase="{{ step.phase }}">
 <span class="avatar">{{ step.speaker|first }}</span>

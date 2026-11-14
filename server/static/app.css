@@ -1,7 +1,9 @@
 @charset "UTF-8";
 :root {
   --ink:#202d39;
-  --muted:#7d8997;
+  --muted:#5f6d7d;
+  --blue-muted:#4a6a9a;
+  --danger:#b4473c;
   --blue:#3478f6;
   --line:rgba(81,104,132,.12);
   --shadow:0 12px 46px rgba(62,83,115,.055);
@@ -210,7 +212,7 @@ small,.subtle {
   gap:36px;
   padding:34px 0 28px;
   font-size:12px;
-  color:#a0a9b4
+  color:var(--muted)
 }
 .journey>a,.journey>span {
   display:flex;
@@ -219,7 +221,7 @@ small,.subtle {
   white-space:nowrap
 }
 .journey b {
-  font-size:10px;
+  font-size:11px;
   width:21px;
   height:21px;
   border:1px solid #dce1e8;
@@ -247,10 +249,10 @@ small,.subtle {
 }
 .eyebrow {
   display:block;
-  font-size:10px;
+  font-size:11px;
   letter-spacing:.12em;
   font-weight:650;
-  color:#929daa
+  color:var(--muted)
 }
 .upload-intro h1 {
   font-size:52px;
@@ -262,7 +264,7 @@ small,.subtle {
 .lead {
   font-size:15px;
   line-height:1.85;
-  color:#7b8795;
+  color:var(--muted);
   margin-top:14px
 }
 .intro-points {
@@ -275,14 +277,14 @@ small,.subtle {
 .intro-points b {
   margin-right:15px;
   font-size:11px;
-  color:#a4b5cb
+  color:var(--muted)
 }
 .quiet-note {
   display:flex;
   gap:16px;
   align-items:center;
   margin-top:44px;
-  color:#6f7e8e;
+  color:var(--muted);
   font-size:13px
 }
 .mini-doc {
@@ -305,17 +307,17 @@ small,.subtle {
   gap:12px
 }
 .tag {
-  font-size:10px;
+  font-size:11px;
   border-radius:7px;
   padding:4px 9px;
   background:#edf2fa;
-  color:#7893b6;
+  color:var(--blue-muted);
   font-weight:550;
   white-space:nowrap
 }
 .tag[data-priority='높음'] {
   background:none;
-  color:#d2584c;
+  color:var(--danger);
   box-shadow:inset 0 0 0 1px #ecaaa3;
   font-size:11px;
   font-weight:600
@@ -362,11 +364,11 @@ small,.subtle {
 }
 .dropzone>span:not(.file-icon) {
   font-size:12px;
-  color:#94a2b4
+  color:var(--muted)
 }
 .dropzone small {
-  font-size:10px;
-  color:#a7b1bf;
+  font-size:12px;
+  color:var(--muted);
   margin-top:7px
 }
 .file-icon {
@@ -386,17 +388,17 @@ small,.subtle {
   display:flex;
   justify-content:space-between;
   margin:23px 0 8px;
-  color:#6e7c8c;
+  color:var(--muted);
   font-size:12px
 }
 .field-label span {
-  color:#a8b1bc;
-  font-size:10px
+  color:var(--muted);
+  font-size:12px
 }
 .text-input {
   margin:17px 0 21px;
   font-size:12px;
-  color:#8794a4
+  color:var(--muted)
 }
 .text-input summary {
   display:flex;
@@ -430,7 +432,7 @@ small,.subtle {
 }
 .secondary {
   background:#eaf0f9;
-  color:#4f77b0
+  color:var(--blue-muted)
 }
 .full {
   width:100%;
@@ -555,9 +557,9 @@ small,.subtle {
   }
 }
 .microcopy {
-  font-size:10px;
+  font-size:12px;
   text-align:center;
-  color:#a3adba;
+  color:var(--muted);
   margin-top:14px
 }
 .form-status {
@@ -593,7 +595,7 @@ small,.subtle {
 .source {
   font-size:12px;
   margin-top:16px;
-  color:#7b8ca0
+  color:var(--muted)
 }
 .source summary,.bubble-detail summary {
   list-style:none
@@ -606,7 +608,7 @@ small,.subtle {
 }
 .source p {
   margin:10px 0;
-  color:#697887
+  color:var(--muted)
 }
 .original-text {
   white-space:pre-wrap;
@@ -695,7 +697,7 @@ small,.subtle {
 }
 .role-impact {
   font-size:13px;
-  color:#788798;
+  color:var(--muted);
   margin:19px 0;
   line-height:1.85
 }
@@ -728,7 +730,7 @@ small,.subtle {
 }
 .text-link {
   display:block;
-  color:#7d98bd;
+  color:var(--blue-muted);
   font-size:11px;
   margin-top:16px
 }
@@ -748,19 +750,19 @@ small,.subtle {
   width:29px;
   height:29px;
   border-radius:10px;
-  font-size:10px
+  font-size:11px
 }
 .self-tag {
   background:#fff1bc;
-  color:#967b30;
-  font-size:9px;
+  color:#746a49;
+  font-size:11px;
   padding:3px 7px;
   border-radius:6px;
   white-space:nowrap
 }
 .sidebar-note {
-  color:#a2acb7;
-  font-size:10px;
+  color:var(--muted);
+  font-size:12px;
   line-height:1.9;
   margin-top:22px
 }
@@ -787,7 +789,7 @@ small,.subtle {
   font-size:14px
 }
 .chat-header .subtle {
-  font-size:10px;
+  font-size:12px;
   margin-left:6px
 }
 .chat-symbol {
@@ -828,13 +830,13 @@ small,.subtle {
   align-items:center;
   gap:7px;
   font-size:11px;
-  color:#788799;
+  color:var(--muted);
   margin-bottom:7px;
   flex-wrap:wrap
 }
 .speaker small {
-  font-size:9px;
-  color:#a9b2be
+  font-size:12px;
+  color:var(--muted)
 }
 .bubble {
   position:relative;
@@ -905,17 +907,17 @@ small,.subtle {
 .bubble-detail {
   font-size:11px;
   margin-top:12px;
-  color:#98a6b6;
+  color:var(--muted);
   border-top:1px solid #edf0f4;
   padding-top:9px
 }
 .is-self .bubble-detail {
-  color:#a1905b;
+  color:#746a49;
   border-color:#e9d999
 }
 .bubble-detail p {
   font-size:12px;
-  color:#6f7d8c;
+  color:var(--muted);
   line-height:1.85;
   margin-top:10px
 }
@@ -926,7 +928,7 @@ blockquote {
   border-left:2px solid #c2d2e7;
   margin:13px 0;
   padding:0 0 0 12px;
-  color:#8290a2;
+  color:var(--muted);
   font-size:12px;
   line-height:1.85;
   overflow-wrap:anywhere
@@ -934,12 +936,12 @@ blockquote {
 blockquote small {
   display:block;
   margin-top:6px;
-  font-size:10px
+  font-size:12px
 }
 .message-references {
   grid-column:2;
-  font-size:9px;
-  color:#a0adbd;
+  font-size:12px;
+  color:var(--muted);
   margin-top:7px;
   display:flex;
   gap:10px;
@@ -947,6 +949,7 @@ blockquote small {
 }
 .is-self .message-references {
   grid-column:1;
+  grid-row:2;
   justify-content:flex-end
 }
 .is-moderator {
@@ -959,7 +962,7 @@ blockquote small {
 .chat-welcome {
   padding:100px 0;
   text-align:center;
-  color:#a2aec0;
+  color:var(--muted);
   font-size:14px;
   line-height:1.9
 }
@@ -1006,18 +1009,18 @@ blockquote small {
   min-height:54px
 }
 .run-controls .subtle {
-  font-size:10px
+  font-size:12px
 }
 .run-controls form {
   margin-left:auto
 }
 .run-controls button {
-  font-size:10px;
+  font-size:12px;
   padding:8px 13px;
   border-radius:9px
 }
 .error {
-  color:#b45e56;
+  color:var(--danger);
   font-size:12px;
   padding:10px 0;
   overflow-wrap:anywhere
@@ -1048,13 +1051,13 @@ blockquote small {
 }
 .issue-number {
   font-size:11px;
-  color:#a0b1c7
+  color:var(--muted)
 }
 .issue-card h3 {
   margin:10px 0 8px
 }
 .issue-card>p {
-  color:#7a8897;
+  color:var(--muted);
   font-size:13px
 }
 .issue-direction {
@@ -1065,12 +1068,12 @@ blockquote small {
   padding:12px 15px;
   border-radius:11px;
   font-size:12px;
-  color:#6f87a8
+  color:var(--blue-muted)
 }
 .issue-direction>span {
   white-space:nowrap;
-  color:#91a5c1;
-  font-size:10px;
+  color:var(--blue-muted);
+  font-size:12px;
   padding-top:2px
 }
 .issue-positions {
@@ -1090,7 +1093,7 @@ blockquote small {
   width:29px;
   height:29px;
   border-radius:10px;
-  font-size:10px
+  font-size:11px
 }
 .issue-positions p {
   margin:0;
@@ -1107,15 +1110,15 @@ blockquote small {
 }
 .issue-positions .low-tag {
   background:#eef1f5;
-  color:#7a8592;
-  font-size:9px;
+  color:var(--muted);
+  font-size:11px;
   padding:3px 7px;
   border-radius:6px;
   white-space:nowrap;
   margin-right:6px
 }
 .issue-positions .is-low p {
-  color:#7a8592
+  color:var(--muted)
 }
 .current-issue {
   display:flex;
@@ -1150,7 +1153,7 @@ blockquote small {
   padding:10px 16px;
   border-radius:20px;
   background:#f2f4f7;
-  color:#8592a2;
+  color:var(--muted);
   font-size:12px
 }
 .skip-issue {
@@ -1195,7 +1198,7 @@ blockquote small {
   gap:12px;
   font-size:11px;
   font-weight:650;
-  color:#91a5c1;
+  color:var(--blue-muted);
   white-space:normal
 }
 .issue-divider::before,.issue-divider::after {
@@ -1209,7 +1212,7 @@ blockquote small {
   border:1px dashed #dce4ef;
   border-radius:18px;
   padding:30px;
-  color:#9cabbc
+  color:var(--muted)
 }
 .empty-issues>span {
   font-size:25px
@@ -1219,7 +1222,7 @@ blockquote small {
   margin:6px 0
 }
 .empty-issues small {
-  font-size:10px
+  font-size:12px
 }
 .proposal-list {
   display:grid;
@@ -1234,7 +1237,7 @@ blockquote small {
 }
 .proposal-reason {
   font-size:14px;
-  color:#7e8d9e;
+  color:var(--muted);
   line-height:1.85
 }
 .before-after {
@@ -1266,16 +1269,16 @@ blockquote small {
 .before-after p {
   font-size:14px;
   line-height:1.9;
-  color:#5475a6;
+  color:var(--blue-muted);
   margin-top:12px
 }
 .before-after blockquote {
   border:0;
   padding:0;
-  color:#8d98a6
+  color:var(--muted)
 }
 .after .eyebrow {
-  color:#829ec4
+  color:var(--blue-muted)
 }
 .final-heading {
   display:flex;
@@ -1291,7 +1294,7 @@ blockquote small {
   padding:60px;
   background:#ffffff80;
   border-radius:20px;
-  color:#94a2b4;
+  color:var(--muted);
   font-size:13px
 }
 .compare-text {
@@ -1326,7 +1329,7 @@ blockquote small {
   padding:20px 25px;
   margin:20px 0;
   font-size:12px;
-  color:#8997a8
+  color:var(--muted)
 }
 .version-details pre {
   white-space:pre-wrap;
@@ -1470,7 +1473,7 @@ blockquote small {
     gap:0;
     justify-content:space-between;
     padding:26px 0 22px;
-    font-size:9px
+    font-size:11px
   }
   .journey>a,.journey>span {
     flex-direction:column;
@@ -1479,7 +1482,7 @@ blockquote small {
   .journey b {
     width:20px;
     height:20px;
-    font-size:9px
+    font-size:11px
   }
   .upload-layout {
     display:block;
@@ -1493,7 +1496,7 @@ blockquote small {
     font-size:13px
   }
   .eyebrow {
-    font-size:9px
+    font-size:11px
   }
   .intro-points,.quiet-note {
     display:none
@@ -1511,7 +1514,7 @@ blockquote small {
     min-height:152px
   }
   .microcopy {
-    font-size:9px
+    font-size:12px
   }
   .primary,.secondary {
     font-size:12px;
@@ -1544,7 +1547,7 @@ blockquote small {
     margin-bottom:8px
   }
   .role-heading>.subtle {
-    font-size:10px
+    font-size:12px
   }
   .role-grid {
     grid-template-columns:1fr;
@@ -1592,7 +1595,7 @@ blockquote small {
     font-size:12px
   }
   .chat-header .subtle {
-    font-size:9px
+    font-size:12px
   }
   .chat-header>div {
     gap:7px
@@ -1615,14 +1618,14 @@ blockquote small {
     width:26px;
     height:26px;
     border-radius:9px;
-    font-size:10px
+    font-size:11px
   }
   .is-self {
     grid-template-columns:minmax(0,1fr) 26px;
     max-width:89%
   }
   .speaker {
-    font-size:10px;
+    font-size:12px;
     margin-bottom:6px;
     gap:6px
   }
@@ -1636,22 +1639,25 @@ blockquote small {
     font-size:12px
   }
   .bubble-detail {
-    font-size:10px
+    font-size:12px
   }
   .bubble-detail p,blockquote {
     font-size:11px
   }
   .self-tag {
-    font-size:8px
+    font-size:11px
   }
   .message-references {
-    font-size:8px
+    font-size:12px
   }
   .issues-section h2 {
     font-size:19px
   }
+  .issues-section>.section-heading {
+    display:block
+  }
   .issues-section .subtle {
-    font-size:10px
+    font-size:12px
   }
   .issue-card {
     padding:20px
@@ -1694,7 +1700,7 @@ blockquote small {
     font-size:11px
   }
   .run-controls .subtle {
-    font-size:9px
+    font-size:12px
   }
   .text-input summary {
     font-size:11px
@@ -1762,7 +1768,7 @@ blockquote small {
 }
 .reading-screen small {
   font-size:12px;
-  color:#a9b2be
+  color:var(--muted)
 }
 .reading-art {
   position:relative;

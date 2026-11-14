@@ -1,7 +1,7 @@
 {% load i18n %}{% for item in issues.items %}<article class="issue-card" id="{{ item.id }}">
 <div class="section-heading">
 <span class="issue-number">{{ forloop.counter|stringformat:'02d' }}</span>
-<span class="tag">{% trans item.priority %}</span>
+<span class="tag" data-priority="{{ item.priority }}">{% trans item.priority %}</span>
 </div>
 <h3>{{ item.issue }}</h3>
 <p>{{ item.reason }}</p>
