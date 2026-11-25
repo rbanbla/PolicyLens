@@ -107,11 +107,34 @@ if (!document.querySelector('[data-reading]')?.hidden) showReading();  // Drawn 
       if (dot) go(dots.indexOf(dot));
     });
     go(0);
-    if (still || slides.length < 2) return;
-    setInterval(() => {
-      // Pointing at it, moving through it by keyboard, or reading an opened card holds the slide where it is.
-      if (!slider.matches(':hover') && !slider.querySelector(':focus-visible, [aria-expanded="true"]')) go(index + 1);
-    }, 4000);
+    if (slides.length < 2) return;
+    let timer, startX, startY, dx, sideways;
+    // On touch screens the card follows the finger; a swipe past 50px moves to the next or previous policy.
+    track.addEventListener('touchstart', event => {
+      [startX, startY, dx, sideways] = [event.touches[0].clientX, event.touches[0].clientY, 0, null];
+    }, {passive: true});
+    track.addEventListener('touchmove', event => {
+      dx = event.touches[0].clientX - startX;
+      sideways ??= Math.abs(dx) > Math.abs(event.touches[0].clientY - startY);
+      if (!sideways) return;
+      track.style.transition = 'none';
+      track.style.transform = `translateX(calc(${-100 * index}% + ${dx}px))`;
+    }, {passive: true});
+    track.addEventListener('touchend', () => {
+      if (!sideways) return;
+      track.style.transition = '';
+      go(Math.abs(dx) > 50 ? index - Math.sign(dx) : index);
+      autoplay();  // A swipe restarts the wait, so the slider does not jump right after it.
+    });
+    function autoplay() {
+      if (still) return;
+      clearInterval(timer);
+      timer = setInterval(() => {
+        // Pointing at it, moving through it by keyboard, or reading an opened card holds the slide where it is.
+        if (!slider.matches(':hover') && !slider.querySelector(':focus-visible, [aria-expanded="true"]')) go(index + 1);
+      }, 4000);
+    }
+    autoplay();
   }
 })();
 
